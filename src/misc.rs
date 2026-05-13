@@ -51,11 +51,20 @@ pub fn get_blacklisted_domains(files: &[String]) -> Result<HashSet<Name>, String
 
         for line in reader.lines() {
             let line = line.map_err(|err| format!("{err}"))?;
-            let domain = line.trim().to_lowercase();
 
-            if domain.is_empty() || domain.starts_with(&[';', '#']){
+            if line.is_empty() || line.starts_with(&[';', '#']) || !line.is_ascii() {
                 continue;
             }
+
+            /*
+             * # Format
+             * 0.0.0.0 ads.com
+             */
+
+            let domain = match line.trim().split(' ').nth(1) {
+                Some(x) => x.to_lowercase(),
+                None => continue
+            };
 
             domains.insert(Name::from_str(&domain).map_err(|err| format!("{err}"))?);
         }
