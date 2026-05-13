@@ -19,10 +19,9 @@ pub fn block_response(request: &Message) -> Result<Message, String> {
     );
     resp_pkt.add_answer(record);
 
-    resp_pkt.set_edns(match &request.edns {
-        Some(x) => x.clone(),
-        None => return Err(format!("no edns found in QUERY packet"))
-    });
+    if request.edns.is_some() {
+        resp_pkt.set_edns(request.edns.clone().unwrap());
+    }
 
     Ok(resp_pkt)
 }

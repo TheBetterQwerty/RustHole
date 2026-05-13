@@ -1,8 +1,5 @@
 use std::{
-    io::Write,
-    sync::{Mutex, LazyLock, OnceLock},
-    net::SocketAddr,
-    collections::HashSet
+    collections::HashSet, io::Write, net::SocketAddr, sync::{LazyLock, Mutex, OnceLock}
 };
 use tokio::net::UdpSocket;
 use hickory_proto::op::{MessageType, UpdateMessage};
