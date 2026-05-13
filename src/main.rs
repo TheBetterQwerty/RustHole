@@ -1,9 +1,12 @@
+use std::{
+    io::Write,
+    sync::{Mutex, LazyLock, OnceLock},
+    net::SocketAddr,
+    collections::HashSet
+};
 use tokio::net::UdpSocket;
-use std::net::SocketAddr;
-use std::sync::OnceLock;
 use hickory_proto::op::{MessageType, UpdateMessage};
 use hickory_proto::{op::Message, rr::Name};
-use std::collections::HashSet;
 
 mod config;
 mod misc;
@@ -16,6 +19,8 @@ struct Configuration {
 }
 
 static GLOBAL_CONFIG: OnceLock<Configuration> = OnceLock::new();
+static BLOCKED_QUERIES: LazyLock<Mutex<u128>> = LazyLock::new(|| Mutex::new(0u128));
+static ALLOWED_QUERIES: LazyLock<Mutex<u128>> = LazyLock::new(|| Mutex::new(0u128));
 
 async fn handle_client(packet: Vec<u8>, addrs: SocketAddr) {
     let config = GLOBAL_CONFIG.get().unwrap();
@@ -38,7 +43,14 @@ async fn handle_client(packet: Vec<u8>, addrs: SocketAddr) {
 
     if config.blacklist.contains(&requested_domain) {
         // Block the domain
-        dbg!("BLOCKED");
+        {
+            let mut a = BLOCKED_QUERIES.lock().unwrap();
+            let b = ALLOWED_QUERIES.lock().unwrap();
+            *a += 1;
+            print!("\r; Queries Blocked: {} | Queries Allowed: {}", *a, *b);
+            std::io::stdout().flush().ok();
+        }
+
         let resp_pkt = match misc::block_response(&dns_packet) {
             Ok(x) => x,
             Err(err) => {
@@ -57,7 +69,14 @@ async fn handle_client(packet: Vec<u8>, addrs: SocketAddr) {
 
         let _ = config.socket.send_to(&resp_bytes, addrs).await;
     } else {
-        dbg!("ALLOWED");
+        {
+            let a = BLOCKED_QUERIES.lock().unwrap();
+            let mut b = ALLOWED_QUERIES.lock().unwrap();
+            *b += 1;
+            print!("\r; Queries Blocked: {} | Queries Allowed: {}", *a, *b);
+            std::io::stdout().flush().ok();
+        }
+
         let mut servers = config.toml.upstream.servers.iter();
         let mut upstream_buffer = [0u8; 512];
 
@@ -132,7 +151,9 @@ async fn main() {
         }
     };
 
-    println!("[+] Listening on {}", &config.server.listen_addr);
+    /* ------------------------ Shows Data --------------------------------- */
+    println!("<<>> RustHole Running on {} <<>>", &config.server.listen_addr);
+    println!(";; Loaded: {} blocked sites", blacklisted_domains.len());
 
     if GLOBAL_CONFIG.set(
         Configuration {
@@ -164,7 +185,6 @@ async fn main() {
 
         tokio::spawn(async move {
             handle_client(buf[..nbytes].to_vec(), addrs).await;
-            dbg!("handling client");
         });
     }
 }

@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "FilterDNS"
+name = "RustHole"
 version = "0.1.0"
 dependencies = [
  "hickory-proto",

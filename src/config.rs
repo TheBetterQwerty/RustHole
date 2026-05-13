@@ -15,14 +15,11 @@ pub struct TomlConfig {
 pub struct Server {
     pub listen_addr: String,
     pub tcp_enabled: bool,
-    pub max_udp_size: usize,
-    pub workers: usize,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Upstream {
     pub servers: Vec<String>,
-    pub timeout_ms: u64,
     pub retries: usize,
 }
 
@@ -42,12 +39,9 @@ pub fn parse_toml_file() -> Result<TomlConfig, String> {
         std::fs::write(&toml_file, r#"[server]
 listen_addr = "127.0.0.1:2053"
 tcp_enabled = true
-max_udp_size = 512
-workers = 4
 
 [upstream]
 servers = []
-timeout_ms = 5000
 retries = 3
 
 [blacklist]
