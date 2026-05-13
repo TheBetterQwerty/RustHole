@@ -5,7 +5,7 @@ use serde::Deserialize;
 use toml;
 
 #[derive(Deserialize, Debug)]
-pub struct Config {
+pub struct TomlConfig {
     pub server: Server,
     pub upstream: Upstream,
     pub blacklist: Blacklist,
@@ -22,7 +22,7 @@ pub struct Server {
 #[derive(Deserialize, Debug)]
 pub struct Upstream {
     pub servers: Vec<String>,
-    pub timeout_ms: usize,
+    pub timeout_ms: u64,
     pub retries: usize,
 }
 
@@ -31,7 +31,7 @@ pub struct Blacklist {
     pub files: Vec<String>,
 }
 
-pub fn parse_toml_file() -> Result<Config, String> {
+pub fn parse_toml_file() -> Result<TomlConfig, String> {
     let toml_file = std::env::current_dir()
         .unwrap()
         .join("config.toml")
@@ -60,7 +60,7 @@ files = []
         Err(err) => return Err(format!("Error: {err} (Reading File {toml_file})", )),
     };
 
-    let data: Config = match toml::from_str(&file_contents) {
+    let data: TomlConfig = match toml::from_str(&file_contents) {
         Ok(x) => return Ok(x),
         Err(err) => return Err(format!("Error: incorrect config file at {}", toml_file)),
     };
