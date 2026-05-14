@@ -7,6 +7,7 @@ use toml;
 #[derive(Deserialize, Debug)]
 pub struct TomlConfig {
     pub server: Server,
+    pub cache: Cache,
     pub upstream: Upstream,
     pub blacklist: Blacklist,
 }
@@ -15,6 +16,11 @@ pub struct TomlConfig {
 pub struct Server {
     pub listen_addr: String,
     pub tcp_enabled: bool,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Cache {
+    pub max_cache: usize,
 }
 
 #[derive(Deserialize, Debug)]
@@ -39,6 +45,9 @@ pub fn parse_toml_file() -> Result<TomlConfig, String> {
         std::fs::write(&toml_file, r#"[server]
 listen_addr = "127.0.0.1:2053"
 tcp_enabled = true
+
+[cache]
+max_cache = 10000
 
 [upstream]
 servers = []
