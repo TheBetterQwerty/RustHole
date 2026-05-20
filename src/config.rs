@@ -4,7 +4,7 @@ use std::{fs::OpenOptions, path::PathBuf, sync::OnceLock};
 use serde::Deserialize;
 use toml;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct TomlConfig {
     pub server: Server,
     pub cache: Cache,
@@ -12,24 +12,24 @@ pub struct TomlConfig {
     pub blacklist: Blacklist,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Server {
     pub listen_addr: String,
     pub tcp_enabled: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Cache {
     pub max_cache: usize,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Upstream {
     pub servers: Vec<String>,
     pub retries: usize,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Blacklist {
     pub files: Vec<String>,
 }
@@ -44,7 +44,7 @@ pub fn parse_toml_file() -> Result<TomlConfig, String> {
     if !std::fs::exists(&toml_file).unwrap() {
         std::fs::write(&toml_file, r#"[server]
 listen_addr = "127.0.0.1:2053"
-tcp_enabled = true
+tcp_enabled = false
 
 [cache]
 max_cache = 10000

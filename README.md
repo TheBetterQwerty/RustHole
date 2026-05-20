@@ -27,11 +27,15 @@ It blocks blacklisted domains locally and forwards allowed DNS queries to upstre
 
 5. Blacklists are loaded into memory on startup for fast lookup performance using hash-based matching.
 
+6. DNS response caching:
+
+   * The DNS response recieved from the upstream server's is stored in cache.
+   * Expiry time is set for each record, unused and expired caches are purged in due time.
+
 ---
 
 # Future Updates
 
-* DNS response caching
 * DNS-over-HTTPS upstream support
 * TCP DNS support
 * IPv6 support
@@ -41,4 +45,3 @@ It blocks blacklisted domains locally and forwards allowed DNS queries to upstre
 * Configurable block responses
 * Blocklist auto-updates
 * Rate limiting
-

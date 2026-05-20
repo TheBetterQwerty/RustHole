@@ -1,30 +1,90 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, OnceLock, RwLock};
 use std::{
-    collections::{HashMap, HashSet}, net::SocketAddr, sync::OnceLock
+    collections::{HashMap, HashSet}, net::SocketAddr
 };
-use hickory_proto::rr::Record;
 use tokio::net::UdpSocket;
 use hickory_proto::op::{MessageType, UpdateMessage};
 use hickory_proto::{op::Message, rr::Name};
 
-use crate::misc::get_record;
+use crate::cache::Purge;
 
 mod config;
 mod misc;
+mod cache;
 
-struct Configuration {
+struct DNSConfiguration {
     socket: UdpSocket,
     upstream: UdpSocket,
     blacklist: HashSet<Name>,
     toml: config::TomlConfig
 }
 
-type Cache<T,X> = Arc<Mutex<HashMap<T,X>>>;
+// TODO: Remove All Unwraps;
+type CacheMap = Arc<RwLock<HashMap<cache::CacheKey, cache::CacheValue>>>;
+static DNS_CONFIG: OnceLock<DNSConfiguration> = OnceLock::new();
 
-static GLOBAL_CONFIG: OnceLock<Configuration> = OnceLock::new();
+async fn upstream_query(packet: &[u8], dns_packet: &Message, query_cache: CacheMap, key: cache::CacheKey) -> Option<Message> {
+    let config = DNS_CONFIG.get().unwrap();
+    let mut servers = config.toml.upstream.servers.iter();
+    let mut upstream_buffer = [0u8; 4096];
 
-async fn handle_client(packet: &[u8], addrs: SocketAddr, cache: Cache<Name, Record>) {
-    let config = GLOBAL_CONFIG.get().unwrap();
+    'upstream: loop {
+        let _ = config.upstream.send_to(
+            packet,
+            match servers.next() {
+                Some(x) => x,
+                None => break 'upstream None,
+            }
+        ).await;
+
+        let (bytes_read, _addrs) = match config.upstream.recv_from(&mut upstream_buffer).await {
+            Ok((0, _)) => {
+                eprintln!("[!] Error: No Data Recieved");
+                break 'upstream None;
+            },
+            Ok((x, addrs)) => (x, addrs),
+            Err(err) => {
+                eprintln!("[!] Error: {err}");
+                break 'upstream None;
+            }
+        };
+
+        let upstream_resp = match Message::from_vec(&upstream_buffer[..bytes_read]) {
+            Ok(x) => x,
+            Err(err) => {
+                eprintln!("[!] Error: Decoding error {err}");
+                break 'upstream None;
+            },
+        };
+
+        if (dns_packet.id() == upstream_resp.id()) && (upstream_resp.metadata.message_type == MessageType::Response) {
+            // insert it into hashmap
+            let mut cache = match query_cache.write() {
+                Ok(x) => x,
+                Err(err) => {
+                    eprintln!("[!] Error: Getting a lock on cache {err}!");
+                    return None;
+                }
+            };
+
+            let value = match misc::get_record(&upstream_resp) {
+                Some(x) => cache::CacheValue::new(x),
+                None => {
+                    eprintln!("[!] Error: Not Answer queries was found!");
+                    return None;
+                }
+            };
+
+            (*cache).insert(key, value);
+
+            return Some(upstream_resp);
+        }
+    }
+
+}
+
+async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap) {
+    let dns_config = DNS_CONFIG.get().unwrap();
 
     let dns_packet = match Message::from_vec(packet) {
         Ok(x) => x,
@@ -42,7 +102,7 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, cache: Cache<Name, Reco
         }
     };
 
-    if config.blacklist.contains(&requested_domain) {
+    if dns_config.blacklist.contains(&requested_domain) {
         // Block the domain
         let resp_pkt = misc::create_response(
             &dns_packet,
@@ -57,84 +117,55 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, cache: Cache<Name, Reco
             }
         };
 
-        let _ = config.socket.send_to(&resp_bytes, addrs).await;
+        let _ = dns_config.socket.send_to(&resp_bytes, addrs).await;
     } else {
-        let dns_response = {
-            let cached_record = {
-                let cache = match cache.lock() {
-                    Ok(x) => x,
-                    Err(err) => {
-                        eprintln!("[!] Error: Getting a lock on cache {err}!");
-                        return;
-                    }
-                };
+        let key = match dns_packet.queries.get(0) {
+            Some(x) => cache::CacheKey::new(x),
+            None => {
+                eprintln!("[!] Error: No queries found in QUERY packet");
+                return;
+            }
+        };
 
-                cache.get(&requested_domain).cloned()
-            };
+        let cached_record = {
+            let query_cache = dns_queries.read().unwrap();
+            (*query_cache).get(&key).cloned()
+        };
 
-            match cached_record {
-                Some(rec) => {
-                    dbg!("Cache hit");
-                    Some(misc::create_response(&dns_packet, rec))
-                },
-                None => {
-                    dbg!("Cache Miss");
-                    let mut servers = config.toml.upstream.servers.iter();
-                    let mut upstream_buffer = [0u8; 512];
+        let dns_response = match cached_record {
+            Some(rec) => {
+                dbg!("Cache hit");
 
-                    'upstream: loop {
-                        let _ = config.upstream.send_to(
-                            packet,
-                            match servers.next() {
-                                Some(x) => x,
-                                None => break 'upstream None,
-                            }
-                        ).await;
-
-                        let (bytes_read, _addrs) = match config.upstream.recv_from(&mut upstream_buffer).await {
-                            Ok((0, _)) => {
-                                eprintln!("[!] Error: No Data Recieved");
-                                break 'upstream None;
-                            },
-                            Ok((x, addrs)) => (x, addrs),
-                            Err(err) => {
-                                eprintln!("[!] Error: {err}");
-                                break 'upstream None;
-                            }
-                        };
-
-                        let upstream_resp = match Message::from_vec(&upstream_buffer[..bytes_read]) {
-                            Ok(x) => x,
-                            Err(err) => {
-                                eprintln!("[!] Error: Decoding error {err}");
-                                break 'upstream None;
-                            },
-                        };
-
-                        if (dns_packet.id() == upstream_resp.id()) && (upstream_resp.metadata.message_type == MessageType::Response) {
-                            // insert it into hashmap
-                            let mut cache = match cache.lock() {
-                                Ok(x) => x,
-                                Err(err) => {
-                                    eprintln!("[!] Error: Getting a lock on cache {err}!");
-                                    return;
-                                }
-                            };
-
-                            let record = match get_record(&upstream_resp) {
-                                Some(x) => x,
-                                None => {
-                                    eprintln!("[!] Error: Not Answer queries was found!");
-                                    return;
-                                }
-                            };
-
-                            cache.insert(requested_domain, record);
-
-                            break 'upstream Some(upstream_resp);
+                {
+                    let query_cache_len = { dns_queries.read().unwrap().len() };
+                    if query_cache_len >= dns_config.toml.cache.max_cache {
+                        // Run the function to remove expired caches
+                        if let Ok(mut cache) = dns_queries.write() {
+                            (*cache).purge_cache();
                         }
                     }
                 }
+
+                if rec.expired() {
+                    dbg!("Cache hit but record expired");
+                    // remove and make a request to the DNS server
+                    {
+                        if let Ok(mut cache) = dns_queries.write() {
+                            (*cache).remove(&key);
+                        } else {
+                            eprintln!("[!] Error: Getting a lock on cache!");
+                        }
+                    }
+
+                    upstream_query(packet, &dns_packet, dns_queries, key).await
+                } else {
+                    Some(misc::create_response(&dns_packet, rec.answer))
+                }
+            },
+            None => {
+                dbg!("Cache Miss");
+                // Make Upstream Request
+                upstream_query(packet, &dns_packet, dns_queries, key).await
             }
         };
 
@@ -149,7 +180,7 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, cache: Cache<Name, Reco
             None => return
         };
 
-        let _ = config.socket.send_to(&dns_resp_bytes, addrs).await;
+        let _ = dns_config.socket.send_to(&dns_resp_bytes, addrs).await;
     }
 }
 
@@ -187,29 +218,27 @@ async fn main() {
         }
     };
 
-    /* ------------------------ Shows Data --------------------------------- */
-    println!("<<>> RustHole Running on {} <<>>", &config.server.listen_addr);
-    println!(";; Loaded: {} blocked sites", blacklisted_domains.len());
-
-    let cache: Cache<Name, Record>= Arc::new(Mutex::new(HashMap::new()));
-
-    if GLOBAL_CONFIG.set(
-        Configuration {
-            socket,
-            upstream,
-            blacklist: blacklisted_domains,
-            toml: config
-        }
-    ).is_err() {
-        eprintln!("[!] Error: GLOBAL_CONFIG was already set!");
+    if DNS_CONFIG.set(DNSConfiguration {
+        socket,
+        upstream,
+        blacklist: blacklisted_domains,
+        toml: config,
+    }).is_err() {
+        eprintln!("[!] Error: Setting DNS_CONFIG!");
         return;
     }
 
-    let mut buf = [0u8; 512];
+    let mut buf = [0u8; 4096];
+    let query_cache: CacheMap = Arc::new(RwLock::new(HashMap::new()));
+
+    let dnsconfig = &DNS_CONFIG.get().unwrap();
+
+    /* ------------------------ Shows Data --------------------------------- */
+    println!("<<>> RustHole Running on {} <<>>", &dnsconfig.toml.server.listen_addr);
+    println!(";; Loaded: {} blocked sites", dnsconfig.blacklist.len());
 
     loop {
-        let config = GLOBAL_CONFIG.get().unwrap();
-        let (nbytes, addrs) = match config.socket.recv_from(&mut buf).await {
+        let (nbytes, addrs) = match dnsconfig.socket.recv_from(&mut buf).await {
             Ok((0, _)) => {
                 eprintln!("[!] Error: No Data Recieved");
                 continue;
@@ -221,9 +250,10 @@ async fn main() {
             }
         };
 
-        let cache_clone = Arc::clone(&cache);
+        let cache_clone = Arc::clone(&query_cache);
+
         tokio::spawn(async move {
-            handle_client(&buf[..nbytes], addrs, cache_clone).await;
+            handle_client(&buf[..nbytes].to_vec(), addrs, cache_clone).await;
         });
     }
 }
