@@ -58,9 +58,11 @@ pub fn get_blacklisted_domains(files: &[String]) -> Result<HashSet<Name>, String
 
         for line in reader.lines() {
             let line = line.map_err(|err| format!("{err}"))?;
+            if line.starts_with(&['#', ';']) {
+                continue;
+            }
             for m in regex.find_iter(&line) {
                 let domain = m.as_str().to_lowercase();
-                dbg!(&domain);
                 domains.insert(
                     Name::from_str(&domain)
                         .map_err(|err| format!("{err}"))?

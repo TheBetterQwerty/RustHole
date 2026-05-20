@@ -37,7 +37,7 @@ impl CacheValue {
         let time_since = self.cached_at.duration_since(Instant::now());
         let ttl = Duration::from_secs(self.answer.ttl as u64);
         match time_since.cmp(&ttl) {
-            Ordering::Less => true,
+            Ordering::Greater => true,
             _ => false,
         }
     }

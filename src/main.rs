@@ -29,6 +29,7 @@ async fn upstream_query(packet: &[u8], dns_packet: &Message, query_cache: CacheM
     let mut upstream_buffer = [0u8; 4096];
 
     'upstream: loop {
+        dbg!("Upstream Server Asking");
         let _ = config.upstream.send_to(
             packet,
             match servers.next() {
@@ -118,6 +119,7 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap) 
         };
 
         let _ = dns_config.socket.send_to(&resp_bytes, addrs).await;
+        dbg!("Blocked");
     } else {
         let key = match dns_packet.queries.get(0) {
             Some(x) => cache::CacheKey::new(x),
