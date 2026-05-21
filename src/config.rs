@@ -14,7 +14,8 @@ pub struct TomlConfig {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Server {
-    pub listen_addr: String,
+    pub listen_addr_ipv4: String,
+    pub listen_addr_ipv6: String,
     pub tcp_enabled: bool,
 }
 
@@ -43,7 +44,8 @@ pub fn parse_toml_file() -> Result<TomlConfig, String> {
 
     if !std::fs::exists(&toml_file).unwrap() {
         std::fs::write(&toml_file, r#"[server]
-listen_addr = "127.0.0.1:2053"
+listen_addr_ipv4 = "127.0.0.1:2053"
+listen_addr_ipv6 = ""
 tcp_enabled = false
 
 [cache]

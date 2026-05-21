@@ -13,10 +13,16 @@ mod misc;
 mod cache;
 
 struct DNSConfiguration {
-    socket: UdpSocket,
+    socket_ipv4: UdpSocket,
+    socket_ipv6: UdpSocket,
     upstream: UdpSocket,
     blacklist: HashSet<Name>,
     toml: config::TomlConfig
+}
+
+enum DNSAddrs {
+    IPV4(SocketAddr),
+    IPV6(SocketAddr)
 }
 
 // TODO: Remove All Unwraps;
@@ -84,7 +90,7 @@ async fn upstream_query(packet: &[u8], dns_packet: &Message, query_cache: CacheM
 
 }
 
-async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap) {
+async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
     let dns_config = DNS_CONFIG.get().unwrap();
 
     let dns_packet = match Message::from_vec(packet) {
@@ -118,7 +124,15 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap) 
             }
         };
 
-        let _ = dns_config.socket.send_to(&resp_bytes, addrs).await;
+        match addrs {
+            DNSAddrs::IPV4(socket) => {
+                let _ = dns_config.socket_ipv4.send_to(&resp_bytes, socket).await;
+            },
+            DNSAddrs::IPV6(socket) => {
+                let _ = dns_config.socket_ipv6.send_to(&resp_bytes, socket).await;
+            }
+        }
+
         dbg!("Blocked");
     } else {
         let key = match dns_packet.queries.get(0) {
@@ -171,6 +185,8 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap) 
             }
         };
 
+        dbg!(&dns_response);
+
         let dns_resp_bytes = match dns_response {
             Some(x) => match x.to_vec() {
                 Ok(x) => x,
@@ -182,7 +198,64 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap) 
             None => return
         };
 
-        let _ = dns_config.socket.send_to(&dns_resp_bytes, addrs).await;
+        match addrs {
+            DNSAddrs::IPV4(socket) => {
+                let _ = dns_config.socket_ipv4.send_to(&dns_resp_bytes, socket).await;
+            },
+            DNSAddrs::IPV6(socket) => {
+                let _ = dns_config.socket_ipv6.send_to(&dns_resp_bytes, socket).await;
+            }
+        }
+    }
+}
+
+async fn handle_ipv4(query_cache: CacheMap) {
+    let mut buffer = [0u8; 4096];
+    let config = DNS_CONFIG.get().unwrap();
+
+    loop {
+        let (nbytes, addrs) = match config.socket_ipv4.recv_from(&mut buffer).await {
+            Ok((0, _)) => {
+                eprintln!("[!] Error: No Data Recieved");
+                continue;
+            },
+            Ok((x, addrs)) => (x, addrs),
+            Err(err) => {
+                eprintln!("[!] Error: {err}");
+                continue;
+            }
+        };
+
+        let query_clone = Arc::clone(&query_cache);
+
+        tokio::spawn(async move {
+            handle_client(&buffer[..nbytes].to_vec(), DNSAddrs::IPV4(addrs), query_clone).await;
+        });
+    }
+}
+
+async fn handle_ipv6(query_cache: CacheMap) {
+    let mut buffer = [0u8; 4096];
+    let config = DNS_CONFIG.get().unwrap();
+
+    loop {
+        let (nbytes, addrs) = match config.socket_ipv6.recv_from(&mut buffer).await {
+            Ok((0, _)) => {
+                eprintln!("[!] Error: No Data Recieved");
+                continue;
+            },
+            Ok((x, addrs)) => (x, addrs),
+            Err(err) => {
+                eprintln!("[!] Error: {err}");
+                continue;
+            }
+        };
+
+        let query_clone = Arc::clone(&query_cache);
+
+        tokio::spawn(async move {
+            handle_client(&buffer[..nbytes].to_vec(), DNSAddrs::IPV6(addrs), query_clone).await;
+        });
     }
 }
 
@@ -196,18 +269,24 @@ async fn main() {
         }
     };
 
-    let blacklisted_domains: HashSet<Name> = match misc::get_blacklisted_domains(&config.blacklist.files) {
-        Ok(x) => x,
+    let socket_ipv4 = match UdpSocket::bind(&config.server.listen_addr_ipv4).await {
+        Ok(x) => {
+            print!("<<>> RustHole Running on {} ", &config.server.listen_addr_ipv4);
+            x
+        },
         Err(err) => {
-            eprintln!("[!] Error: {err}");
+            eprintln!("[!] Error: Binding to {} {err}", &config.server.listen_addr_ipv4);
             return;
         }
     };
 
-    let socket = match UdpSocket::bind(&config.server.listen_addr).await {
-        Ok(x) => x,
+    let socket_ipv6 = match UdpSocket::bind(&config.server.listen_addr_ipv6).await {
+        Ok(x) => {
+            println!("and {} <<>>", &config.server.listen_addr_ipv6);
+            x
+        },
         Err(err) => {
-            eprintln!("[!] Error: Binding to {} {err}", &config.server.listen_addr);
+            eprintln!("[!] Error: Binding to {} {err}", &config.server.listen_addr_ipv6);
             return;
         }
     };
@@ -215,13 +294,25 @@ async fn main() {
     let upstream = match UdpSocket::bind("0.0.0.0:0").await {
         Ok(x) => x,
         Err(err) => {
-            eprintln!("[!] Error: Binding to {} {err}", &config.server.listen_addr);
+            eprintln!("[!] Error: Binding to {} {err}", "0.0.0.0:0");
+            return;
+        }
+    };
+
+    let blacklisted_domains: HashSet<Name> = match misc::get_blacklisted_domains(&config.blacklist.files) {
+        Ok(x) => {
+            println!(";; Loaded: {} blocked sites", x.len());
+            x
+        },
+        Err(err) => {
+            eprintln!("[!] Error: {err}");
             return;
         }
     };
 
     if DNS_CONFIG.set(DNSConfiguration {
-        socket,
+        socket_ipv4,
+        socket_ipv6,
         upstream,
         blacklist: blacklisted_domains,
         toml: config,
@@ -230,32 +321,12 @@ async fn main() {
         return;
     }
 
-    let mut buf = [0u8; 4096];
     let query_cache: CacheMap = Arc::new(RwLock::new(HashMap::new()));
+    let query_cache_clone = Arc::clone(&query_cache);
 
-    let dnsconfig = &DNS_CONFIG.get().unwrap();
+    tokio::spawn(async move {
+        handle_ipv4(query_cache_clone).await;
+    });
 
-    /* ------------------------ Shows Data --------------------------------- */
-    println!("<<>> RustHole Running on {} <<>>", &dnsconfig.toml.server.listen_addr);
-    println!(";; Loaded: {} blocked sites", dnsconfig.blacklist.len());
-
-    loop {
-        let (nbytes, addrs) = match dnsconfig.socket.recv_from(&mut buf).await {
-            Ok((0, _)) => {
-                eprintln!("[!] Error: No Data Recieved");
-                continue;
-            },
-            Ok((x, addrs)) => (x, addrs),
-            Err(err) => {
-                eprintln!("[!] Error: {err}");
-                continue;
-            }
-        };
-
-        let cache_clone = Arc::clone(&query_cache);
-
-        tokio::spawn(async move {
-            handle_client(&buf[..nbytes].to_vec(), addrs, cache_clone).await;
-        });
-    }
+    handle_ipv6(query_cache).await;
 }

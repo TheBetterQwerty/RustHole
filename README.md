@@ -32,13 +32,14 @@ It blocks blacklisted domains locally and forwards allowed DNS queries to upstre
    * The DNS response recieved from the upstream server's is stored in cache.
    * Expiry time is set for each record, unused and expired caches are purged in due time.
 
+7. RustHole now supports IPV6 packets.
+
 ---
 
 # Future Updates
 
 * DNS-over-HTTPS upstream support
 * TCP DNS support
-* IPv6 support
 * Web dashboard
 * Real-time query monitoring
 * Query logging
