@@ -35,6 +35,23 @@ pub struct Blacklist {
     pub files: Vec<String>,
 }
 
+const TOML_FILE_BASIC_CONFIG: &str =
+r#"[server]
+listen_addr_ipv4 = "127.0.0.1:2053"
+listen_addr_ipv6 = "[::1]:2053"
+tcp_enabled = false
+
+[cache]
+max_cache = 10000
+
+[upstream]
+servers = ["1.1.1.1:53", "8.8.8.8:53"]
+retries = 3
+
+[blacklist]
+files = []
+"#;
+
 pub fn parse_toml_file() -> Result<TomlConfig, String> {
     let toml_file = std::env::current_dir()
         .unwrap()
@@ -43,21 +60,9 @@ pub fn parse_toml_file() -> Result<TomlConfig, String> {
         .to_string();
 
     if !std::fs::exists(&toml_file).unwrap() {
-        std::fs::write(&toml_file, r#"[server]
-listen_addr_ipv4 = "127.0.0.1:2053"
-listen_addr_ipv6 = ""
-tcp_enabled = false
-
-[cache]
-max_cache = 10000
-
-[upstream]
-servers = []
-retries = 3
-
-[blacklist]
-files = []
-        "#);
+        std::fs::write(&toml_file, TOML_FILE_BASIC_CONFIG);
+        println!("[+] Config File Created at {}. Change it to fit your needs", toml_file);
+        std::process::exit(0);
     }
 
     let file_contents = match std::fs::read_to_string(&toml_file) {

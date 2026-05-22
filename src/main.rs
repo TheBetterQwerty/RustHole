@@ -1,16 +1,18 @@
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::{Arc, OnceLock, RwLock};
+use std::str::FromStr;
 use std::{
     collections::{HashMap, HashSet}, net::SocketAddr
 };
 use tokio::net::UdpSocket;
 use hickory_proto::op::{MessageType, UpdateMessage};
-use hickory_proto::{op::Message, rr::Name};
-
-use crate::cache::Purge;
+use hickory_proto::{op::Message, rr::{ Name, DNSClass, RecordType}};
 
 mod config;
 mod misc;
 mod cache;
+
+use crate::cache::Purge;
 
 struct DNSConfiguration {
     socket_ipv4: UdpSocket,
@@ -25,7 +27,11 @@ enum DNSAddrs {
     IPV6(SocketAddr)
 }
 
-// TODO: Remove All Unwraps;
+/*
+ *  TODO: Remove All Unwraps
+ *  TODO: Send the packet with no answers if not found
+ */
+
 type CacheMap = Arc<RwLock<HashMap<cache::CacheKey, cache::CacheValue>>>;
 static DNS_CONFIG: OnceLock<DNSConfiguration> = OnceLock::new();
 
@@ -78,7 +84,7 @@ async fn upstream_query(packet: &[u8], dns_packet: &Message, query_cache: CacheM
                 Some(x) => cache::CacheValue::new(x),
                 None => {
                     eprintln!("[!] Error: Not Answer queries was found!");
-                    return None;
+                    return Some(upstream_resp);
                 }
             };
 
@@ -113,7 +119,16 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
         // Block the domain
         let resp_pkt = misc::create_response(
             &dns_packet,
-            misc::blocked_record(requested_domain)
+            match addrs {
+                DNSAddrs::IPV4(_) => misc::create_record_A(
+                    requested_domain,
+                    Ipv4Addr::new(0, 0, 0, 0)
+                ),
+                DNSAddrs::IPV6(_) => misc::create_record_AAAA(
+                    requested_domain,
+                    Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)
+                ),
+            }
         );
 
         let resp_bytes = match resp_pkt.to_vec() {
@@ -321,7 +336,19 @@ async fn main() {
         return;
     }
 
-    let query_cache: CacheMap = Arc::new(RwLock::new(HashMap::new()));
+    let mut hashmap = HashMap::new();
+    let domain = Name::from_str("localhost").unwrap();
+    // Localhost PointBack IPv4
+    hashmap.insert(
+        cache::CacheKey {
+            name: domain.clone(),
+            query_type: RecordType::A,
+            query_class: DNSClass::IN
+        },
+        cache::CacheValue::new_no_expiry(misc::create_record_A(domain, Ipv4Addr::new(127, 0, 0, 1)))
+    );
+
+    let query_cache: CacheMap = Arc::new(RwLock::new(hashmap));
     let query_cache_clone = Arc::clone(&query_cache);
 
     tokio::spawn(async move {

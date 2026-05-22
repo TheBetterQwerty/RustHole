@@ -1,19 +1,29 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 use std::collections::HashSet;
 use hickory_proto::{op::Message, rr::{Name, RData, Record}};
 use regex::Regex;
 
-pub fn blocked_record(domain: Name) -> Record {
+#[allow(non_snake_case)]
+pub fn create_record_A(domain: Name, ip: Ipv4Addr) -> Record {
     Record::from_rdata(
         domain,
         60u32,
-        RData::A(Ipv4Addr::new(0, 0, 0, 0).into())
+        RData::A(ip.into())
     )
-
 }
+
+#[allow(non_snake_case)]
+pub fn create_record_AAAA(domain: Name, ip: Ipv6Addr) -> Record {
+    Record::from_rdata(
+        domain,
+        60u32,
+        RData::AAAA(ip.into())
+    )
+}
+
 
 pub fn create_response(request: &Message, record: Record) -> Message {
     let mut resp_pkt = Message::response(request.id, request.op_code);

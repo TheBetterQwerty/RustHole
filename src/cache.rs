@@ -23,6 +23,7 @@ impl CacheKey {
 pub struct CacheValue {
     pub answer: Record,
     pub cached_at: Instant,
+    pub no_expiry: bool,
 }
 
 impl CacheValue {
@@ -30,10 +31,23 @@ impl CacheValue {
         Self {
             answer: answer,
             cached_at: Instant::now(),
+            no_expiry: false
+        }
+    }
+
+    pub fn new_no_expiry(answer: Record) -> Self {
+        Self {
+            answer: answer,
+            cached_at: Instant::now(),
+            no_expiry: true
         }
     }
 
     pub fn expired(&self) -> bool {
+        if self.no_expiry == true {
+            return false;
+        }
+
         let time_since = self.cached_at.duration_since(Instant::now());
         let ttl = Duration::from_secs(self.answer.ttl as u64);
         match time_since.cmp(&ttl) {
