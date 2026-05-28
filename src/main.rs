@@ -7,12 +7,11 @@ use std::{
 use tokio::net::UdpSocket;
 use hickory_proto::op::{MessageType, UpdateMessage};
 use hickory_proto::{op::Message, rr::{ Name, DNSClass, RecordType}};
+use crate::cache::Purge;
 
 mod config;
 mod misc;
 mod cache;
-
-use crate::cache::Purge;
 
 struct DNSConfiguration {
     socket_ipv4: UdpSocket,
@@ -28,15 +27,21 @@ enum DNSAddrs {
 }
 
 /*
- *  TODO: Remove All Unwraps
- *  TODO: Send the packet with no answers if not found
+ *  TODO:
  */
 
 type CacheMap = Arc<RwLock<HashMap<cache::CacheKey, cache::CacheValue>>>;
 static DNS_CONFIG: OnceLock<DNSConfiguration> = OnceLock::new();
 
 async fn upstream_query(packet: &[u8], dns_packet: &Message, query_cache: CacheMap, key: cache::CacheKey) -> Option<Message> {
-    let config = DNS_CONFIG.get().unwrap();
+    let config = match DNS_CONFIG.get() {
+        Some(x) => x,
+        None => {
+            eprintln!("[!] Error: getting config!");
+            return None;
+        }
+    };
+
     let mut servers = config.toml.upstream.servers.iter();
     let mut upstream_buffer = [0u8; 4096];
 
@@ -97,7 +102,13 @@ async fn upstream_query(packet: &[u8], dns_packet: &Message, query_cache: CacheM
 }
 
 async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
-    let dns_config = DNS_CONFIG.get().unwrap();
+    let dns_config = match DNS_CONFIG.get() {
+        Some(x) => x,
+        None => {
+            eprintln!("[!] Error: getting config!");
+            return;
+        }
+    };
 
     let dns_packet = match Message::from_vec(packet) {
         Ok(x) => x,
@@ -159,7 +170,13 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
         };
 
         let cached_record = {
-            let query_cache = dns_queries.read().unwrap();
+            let query_cache = match dns_queries.read() {
+                Ok(x) => x,
+                Err(err) => {
+                    eprintln!("[!] Error: reading dns_queries {err}");
+                    return;
+                }
+            };
             (*query_cache).get(&key).cloned()
         };
 
@@ -168,7 +185,15 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
                 dbg!("Cache hit");
 
                 {
-                    let query_cache_len = { dns_queries.read().unwrap().len() };
+                    let query_cache_len = {
+                        match dns_queries.read() {
+                            Ok(x) => x.len(),
+                            Err(err) => {
+                                eprintln!("[!] Error: {err}");
+                                return;
+                            },
+                        }
+                    };
                     if query_cache_len >= dns_config.toml.cache.max_cache {
                         // Run the function to remove expired caches
                         if let Ok(mut cache) = dns_queries.write() {
@@ -226,7 +251,13 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
 
 async fn handle_ipv4(query_cache: CacheMap) {
     let mut buffer = [0u8; 4096];
-    let config = DNS_CONFIG.get().unwrap();
+    let config = match DNS_CONFIG.get() {
+        Some(x) => x,
+        None => {
+            eprintln!("[!] Error: getting config!");
+            return;
+        }
+    };
 
     loop {
         let (nbytes, addrs) = match config.socket_ipv4.recv_from(&mut buffer).await {
@@ -251,7 +282,13 @@ async fn handle_ipv4(query_cache: CacheMap) {
 
 async fn handle_ipv6(query_cache: CacheMap) {
     let mut buffer = [0u8; 4096];
-    let config = DNS_CONFIG.get().unwrap();
+    let config = match DNS_CONFIG.get() {
+        Some(x) => x,
+        None => {
+            eprintln!("[!] Error: getting config!");
+            return;
+        }
+    };
 
     loop {
         let (nbytes, addrs) = match config.socket_ipv6.recv_from(&mut buffer).await {
@@ -337,7 +374,14 @@ async fn main() {
     }
 
     let mut hashmap = HashMap::new();
-    let domain = Name::from_str("localhost").unwrap();
+    let domain = match Name::from_str("localhost") {
+        Ok(x) => x,
+        Err(err) => {
+            eprintln!("[!] Error: Creating a entry {err}");
+            return;
+        }
+    };
+
     // Localhost PointBack IPv4
     hashmap.insert(
         cache::CacheKey {
