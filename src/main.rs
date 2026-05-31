@@ -7,11 +7,14 @@ use std::{
 use tokio::net::UdpSocket;
 use hickory_proto::op::{MessageType, UpdateMessage};
 use hickory_proto::{op::Message, rr::{ Name, DNSClass, RecordType}};
+use std::sync::atomic::Ordering::Relaxed;
 use crate::cache::Purge;
+use crate::dashboard::Dashboard;
 
 mod config;
 mod misc;
 mod cache;
+mod dashboard;
 
 struct DNSConfiguration {
     socket_ipv4: UdpSocket,
@@ -19,11 +22,6 @@ struct DNSConfiguration {
     upstream: UdpSocket,
     blacklist: HashSet<Name>,
     toml: config::TomlConfig
-}
-
-enum DNSAddrs {
-    IPV4(SocketAddr),
-    IPV6(SocketAddr)
 }
 
 /*
@@ -101,7 +99,7 @@ async fn upstream_query(packet: &[u8], dns_packet: &Message, query_cache: CacheM
 
 }
 
-async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
+async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap, dashboard: Arc<Dashboard>) {
     let dns_config = match DNS_CONFIG.get() {
         Some(x) => x,
         None => {
@@ -118,6 +116,24 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
         },
     };
 
+    {
+        /* DASHBOARD RECORD TYPES */
+        let mut record_types = dashboard.record_types.lock().unwrap();
+        let record_type = dns_packet.queries.get(0).unwrap().query_type().to_string();
+        record_types.entry(record_type)
+            .and_modify(|val| *val += 1)
+            .or_insert(1);
+    }
+
+    {
+        /* DASHBOARD RESPONSE CODES */
+        let mut response_codes = dashboard.response_codes.lock().unwrap();
+        let response_code = dns_packet.response_code;
+        response_codes.entry(response_code.to_string())
+            .and_modify(|val| *val += 1)
+            .or_insert(1);
+    }
+
     let requested_domain = match misc::get_domain(&dns_packet) {
         Some(x) => x,
         None => {
@@ -126,16 +142,18 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
         }
     };
 
+    dashboard.stats.total_queries.fetch_add(1, Relaxed);
+
     if dns_config.blacklist.contains(&requested_domain) {
         // Block the domain
         let resp_pkt = misc::create_response(
             &dns_packet,
             match addrs {
-                DNSAddrs::IPV4(_) => misc::create_record_A(
+                SocketAddr::V4(_) => misc::create_record_A(
                     requested_domain,
                     Ipv4Addr::new(0, 0, 0, 0)
                 ),
-                DNSAddrs::IPV6(_) => misc::create_record_AAAA(
+                SocketAddr::V6(_) => misc::create_record_AAAA(
                     requested_domain,
                     Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)
                 ),
@@ -151,16 +169,19 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
         };
 
         match addrs {
-            DNSAddrs::IPV4(socket) => {
+            SocketAddr::V4(socket) => {
                 let _ = dns_config.socket_ipv4.send_to(&resp_bytes, socket).await;
             },
-            DNSAddrs::IPV6(socket) => {
+            SocketAddr::V6(socket) => {
                 let _ = dns_config.socket_ipv6.send_to(&resp_bytes, socket).await;
             }
         }
 
+        dashboard.stats.blocked_queries.fetch_add(1, Relaxed);
         dbg!("Blocked");
     } else {
+        dashboard.stats.allowed_queries.fetch_add(1, Relaxed);
+
         let key = match dns_packet.queries.get(0) {
             Some(x) => cache::CacheKey::new(x),
             None => {
@@ -183,6 +204,7 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
         let dns_response = match cached_record {
             Some(rec) => {
                 dbg!("Cache hit");
+                dashboard.stats.cache_hits.fetch_add(1, Relaxed);
 
                 {
                     let query_cache_len = {
@@ -194,6 +216,7 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
                             },
                         }
                     };
+
                     if query_cache_len >= dns_config.toml.cache.max_cache {
                         // Run the function to remove expired caches
                         if let Ok(mut cache) = dns_queries.write() {
@@ -213,6 +236,7 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
                         }
                     }
 
+                    dashboard.cache.size.fetch_add(1, Relaxed);
                     upstream_query(packet, &dns_packet, dns_queries, key).await
                 } else {
                     Some(misc::create_response(&dns_packet, rec.answer))
@@ -220,7 +244,10 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
             },
             None => {
                 dbg!("Cache Miss");
+                dashboard.stats.cache_misses.fetch_add(1, Relaxed);
+
                 // Make Upstream Request
+                dashboard.cache.size.fetch_add(1, Relaxed);
                 upstream_query(packet, &dns_packet, dns_queries, key).await
             }
         };
@@ -239,17 +266,17 @@ async fn handle_client(packet: &[u8], addrs: DNSAddrs, dns_queries: CacheMap) {
         };
 
         match addrs {
-            DNSAddrs::IPV4(socket) => {
+            SocketAddr::V4(socket) => {
                 let _ = dns_config.socket_ipv4.send_to(&dns_resp_bytes, socket).await;
             },
-            DNSAddrs::IPV6(socket) => {
+            SocketAddr::V6(socket) => {
                 let _ = dns_config.socket_ipv6.send_to(&dns_resp_bytes, socket).await;
             }
         }
     }
 }
 
-async fn handle_ipv4(query_cache: CacheMap) {
+async fn handle_ipv4(query_cache: CacheMap, dashboard: Arc<Dashboard>) {
     let mut buffer = [0u8; 4096];
     let config = match DNS_CONFIG.get() {
         Some(x) => x,
@@ -272,15 +299,22 @@ async fn handle_ipv4(query_cache: CacheMap) {
             }
         };
 
+        let mut clients = dashboard.top_clients.lock().unwrap();
+
+        clients.entry(addrs.to_string())
+            .and_modify(|val| *val += 1)
+            .or_insert(1);
+
         let query_clone = Arc::clone(&query_cache);
+        let dash_clone = Arc::clone(&dashboard);
 
         tokio::spawn(async move {
-            handle_client(&buffer[..nbytes].to_vec(), DNSAddrs::IPV4(addrs), query_clone).await;
+            handle_client(&buffer[..nbytes].to_vec(), addrs, query_clone, dash_clone).await;
         });
     }
 }
 
-async fn handle_ipv6(query_cache: CacheMap) {
+async fn handle_ipv6(query_cache: CacheMap, dashboard: Arc<Dashboard>) {
     let mut buffer = [0u8; 4096];
     let config = match DNS_CONFIG.get() {
         Some(x) => x,
@@ -303,10 +337,17 @@ async fn handle_ipv6(query_cache: CacheMap) {
             }
         };
 
+        let mut clients = dashboard.top_clients.lock().unwrap();
+
+        clients.entry(addrs.to_string())
+            .and_modify(|val| *val += 1)
+            .or_insert(1);
+
         let query_clone = Arc::clone(&query_cache);
+        let dash_clone = Arc::clone(&dashboard);
 
         tokio::spawn(async move {
-            handle_client(&buffer[..nbytes].to_vec(), DNSAddrs::IPV6(addrs), query_clone).await;
+            handle_client(&buffer[..nbytes].to_vec(), addrs, query_clone, dash_clone).await;
         });
     }
 }
@@ -320,6 +361,10 @@ async fn main() {
             return;
         }
     };
+
+    let mut dashboard = dashboard::Dashboard::new();
+    dashboard.resolver.upstream.push_str(config.upstream.servers.get(0).unwrap());
+    dashboard.resolver.protocol.push_str("DNS");
 
     let socket_ipv4 = match UdpSocket::bind(&config.server.listen_addr_ipv4).await {
         Ok(x) => {
@@ -351,7 +396,7 @@ async fn main() {
         }
     };
 
-    let blacklisted_domains: HashSet<Name> = match misc::get_blacklisted_domains(&config.blacklist.files) {
+    let blacklisted_domains: HashSet<Name> = match misc::get_blacklisted_domains(&config.blacklist.files, &mut dashboard) {
         Ok(x) => {
             println!(";; Loaded: {} blocked sites", x.len());
             x
@@ -392,12 +437,22 @@ async fn main() {
         cache::CacheValue::new_no_expiry(misc::create_record_A(domain, Ipv4Addr::new(127, 0, 0, 1)))
     );
 
+    dashboard.cache.capacity = hashmap.capacity();
+    let dashboard = Arc::new(dashboard);
     let query_cache: CacheMap = Arc::new(RwLock::new(hashmap));
-    let query_cache_clone = Arc::clone(&query_cache);
+    let query_cache_ipv4 = Arc::clone(&query_cache);
+
+    let dashboard_clone_ipv4 = Arc::clone(&dashboard);
+    let dashboard_clone_ipv6 = Arc::clone(&dashboard);
 
     tokio::spawn(async move {
-        handle_ipv4(query_cache_clone).await;
+        handle_ipv4(query_cache_ipv4, dashboard_clone_ipv4).await;
     });
 
-    handle_ipv6(query_cache).await;
+    tokio::spawn(async move {
+        handle_ipv6(query_cache, dashboard_clone_ipv6).await;
+    });
+
+    // start_api
+    let _ = dashboard::start_api("127.0.0.1:8080", dashboard);
 }

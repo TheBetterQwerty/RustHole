@@ -7,5 +7,6 @@ edition = "2024"
 hickory-proto = "0.26.1"
 regex = "1.12.3"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 toml = "1.1.2"
