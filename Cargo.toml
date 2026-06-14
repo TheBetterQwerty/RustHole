@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+axum = "0.8.9"
 hickory-proto = "0.26.1"
 regex = "1.12.3"
 serde = { version = "1.0", features = ["derive"] }

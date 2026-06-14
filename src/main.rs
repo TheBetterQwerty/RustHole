@@ -11,6 +11,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use crate::cache::Purge;
 use crate::dashboard::Dashboard;
 
+mod query;
 mod config;
 mod misc;
 mod cache;
@@ -23,10 +24,6 @@ struct DNSConfiguration {
     blacklist: HashSet<Name>,
     toml: config::TomlConfig
 }
-
-/*
- *  TODO:
- */
 
 type CacheMap = Arc<RwLock<HashMap<cache::CacheKey, cache::CacheValue>>>;
 static DNS_CONFIG: OnceLock<DNSConfiguration> = OnceLock::new();
@@ -198,6 +195,7 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap, 
                     return;
                 }
             };
+
             (*query_cache).get(&key).cloned()
         };
 
@@ -252,7 +250,7 @@ async fn handle_client(packet: &[u8], addrs: SocketAddr, dns_queries: CacheMap, 
             }
         };
 
-        dbg!(&dns_response);
+            dbg!(&dns_response);
 
         let dns_resp_bytes = match dns_response {
             Some(x) => match x.to_vec() {
@@ -419,7 +417,7 @@ async fn main() {
     }
 
     let mut hashmap = HashMap::new();
-    let domain = match Name::from_str("localhost") {
+    let domain = match Name::from_str("localhost.") {
         Ok(x) => x,
         Err(err) => {
             eprintln!("[!] Error: Creating a entry {err}");
@@ -454,5 +452,5 @@ async fn main() {
     });
 
     // start_api
-    let _ = dashboard::start_api("127.0.0.1:8080", dashboard);
+    let _ = dashboard::start_api("127.0.0.1:8080", dashboard).await;
 }

@@ -2,8 +2,13 @@
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::AtomicU64;
 use std::time::Instant;
+use std::io::Result;
 use std::{io::Write, net::TcpListener};
 use std::collections::HashMap;
+use axum::extract::State;
+use axum::{Json, Router};
+use axum::response::{Html, IntoResponse};
+use axum::routing::get;
 use serde::{Deserialize, Serialize};
 use tokio::time;
 
@@ -177,31 +182,27 @@ fn get_time() -> u64 {
     }
 }
 
-pub fn start_api(addrs: &str, body: Arc<Dashboard>) -> std::io::Result<()> {
-    let listener = TcpListener::bind(addrs)?;
+pub async fn start_api(addrs: &str, body: Arc<Dashboard>) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind(addrs).await?;
 
-    dbg!("Listening:");
+    let app = Router::new()
+        .route("/", get(handler))
+        .route("/dashboard", get(dashboard_data))
+        .with_state(body);
 
-    for stream in listener.incoming() {
-        let mut stream = stream?;
+    axum::serve(listener, app).await
+}
 
-        let body = body.to_le_string(); // Convert DashboardResponse to String
-        let http_response = format!(
-            "HTTP/1.1 200 OK\r\n\
-    Server: RustHole-Embedded/1.0\r\n\
-    Content-Type: application/json; charset=utf-8\r\n\
-    Content-Length: {}\r\n\
-    Connection: keep-alive\r\n\
-    Access-Control-Allow-Origin: *\r\n\
-    Cache-Control: no-store, no-cache, must-revalidate\r\n\
-    Date: Sat, 30 May 2026 15:55:00 GMT\r\n\
-    \r\n\
-    {}",
-    body.len(),
-    body
+async fn handler() -> Html<String> {
+    let data = std::fs::read_to_string("index.html")
+        .unwrap_or_else(|error|
+            format!( r#"<!doctype html><html><body> <h1>Error</h1> <p>{}</p> </body> </html>"#,
+                error.to_string())
         );
-        stream.write(http_response.as_bytes())?;
-    }
 
-    Ok(())
+    Html(data)
+}
+
+async fn dashboard_data(State(body): State<Arc<Dashboard>>) -> impl IntoResponse {
+    serde_json::to_string(body.as_ref()).unwrap()
 }

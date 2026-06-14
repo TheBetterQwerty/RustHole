@@ -6,8 +6,6 @@ use std::collections::HashSet;
 use hickory_proto::{op::Message, rr::{Name, RData, Record}};
 use regex::Regex;
 
-use crate::dashboard::{self, Blocklist};
-
 #[allow(non_snake_case)]
 pub fn create_record_A(domain: Name, ip: Ipv4Addr) -> Record {
     Record::from_rdata(
@@ -59,14 +57,14 @@ pub fn get_domain(request: &Message) -> Option<Name> {
     }
 }
 
-pub fn get_blacklisted_domains(files: &[String], dash: &mut dashboard::Dashboard) -> Result<HashSet<Name>, String> {
+pub fn get_blacklisted_domains(files: &[String], dash: &mut crate::dashboard::Dashboard) -> Result<HashSet<Name>, String> {
     let mut domains: HashSet<Name> = HashSet::new();
     let regex = Regex::new(r#"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\.?\b"#)
         .map_err(|e| format!("{e}"))?;
 
     for file in files {
 
-        let mut blocklist = dashboard::Blocklist {
+        let mut blocklist = crate::dashboard::Blocklist {
             name: file.to_string(),
             entries: 0,
             enabled: true

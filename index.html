@@ -1,0 +1,848 @@
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-mono, monospace); }
+
+.rh-root {
+  font-family: 'Courier New', monospace;
+  background: var(--color-background-tertiary);
+  min-height: 100vh;
+  padding: 0;
+}
+
+:root {
+  --color-background-primary: #1a1a1a;
+  --color-background-secondary: #242424;
+  --color-background-tertiary: #141414;
+  --color-text-primary: #f0f0f0;
+  --color-text-secondary: #a0a0a0;
+  --color-border-tertiary: rgba(255,255,255,0.08);
+  --color-border-secondary: rgba(255,255,255,0.15);
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --font-mono: 'Courier New', monospace;
+}
+
+.rh-header {
+  background: var(--color-background-primary);
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rh-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rh-logo-icon {
+  width: 28px; height: 28px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.rh-logo-icon svg { width: 16px; height: 16px; }
+
+.rh-logo-text {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  color: var(--color-text-primary);
+}
+
+.rh-logo-sub {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-left: 4px;
+}
+
+.rh-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rh-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 0.5px solid;
+  transition: all 0.2s;
+}
+
+.rh-status-badge.loading {
+  background: #fef9ec;
+  border-color: #f0c040;
+  color: #7a5800;
+}
+
+.rh-status-badge.connected {
+  background: #eaf3de;
+  border-color: #639922;
+  color: #27500A;
+}
+
+.rh-status-badge.disconnected {
+  background: #fcebeb;
+  border-color: #e24b4a;
+  color: #791F1F;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.loading .status-dot { background: #f0c040; animation: blink 1s ease-in-out infinite; }
+.connected .status-dot { background: #639922; }
+.disconnected .status-dot { background: #e24b4a; }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.rh-uptime {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-family: 'Courier New', monospace;
+}
+
+.rh-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rh-section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.rh-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rh-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rh-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rh-card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 12px 14px;
+}
+
+.rh-metric-card {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 10px 12px;
+}
+
+.rh-metric-label {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+
+.rh-metric-value {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-family: 'Courier New', monospace;
+  line-height: 1.2;
+}
+
+.rh-metric-sub {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.rh-metric-bar {
+  height: 3px;
+  background: var(--color-border-tertiary);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.rh-metric-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.bar-green { background: #639922; }
+.bar-red { background: #e24b4a; }
+.bar-blue { background: #378ADD; }
+.bar-amber { background: #EF9F27; }
+
+.rh-card-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rh-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.rh-table th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
+  padding: 0 0 6px;
+  text-align: left;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  font-weight: 400;
+}
+
+.rh-table th:last-child, .rh-table td:last-child { text-align: right; }
+
+.rh-table td {
+  padding: 5px 0;
+  color: var(--color-text-primary);
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  font-family: 'Courier New', monospace;
+}
+
+.rh-table tr:last-child td { border-bottom: none; }
+
+.rh-table .td-domain {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.badge-blocked { background: #fcebeb; color: #791F1F; }
+.badge-allowed { background: #eaf3de; color: #27500A; }
+.badge-cached  { background: #E6F1FB; color: #0C447C; }
+
+.rh-sparkbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 32px;
+}
+
+.rh-sparkbar-col {
+  flex: 1;
+  background: #378ADD;
+  opacity: 0.7;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+  transition: opacity 0.2s;
+}
+
+.rh-sparkbar-col:hover { opacity: 1; }
+
+.rh-two-col {
+  display: grid;
+  grid-template-columns: minmax(0,1.6fr) minmax(0,1fr);
+  gap: 8px;
+}
+
+.rh-three-col {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);
+  gap: 8px;
+}
+
+.skeleton {
+  background: var(--color-border-tertiary);
+  border-radius: 4px;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+.rh-error-banner {
+  background: #fcebeb;
+  border: 0.5px solid #f09595;
+  border-radius: var(--border-radius-md);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #791F1F;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rh-inline-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.rh-kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  font-size: 12px;
+}
+
+.rh-kv:last-child { border-bottom: none; }
+.rh-kv-key { color: var(--color-text-secondary); font-size: 11px; }
+.rh-kv-val { font-family: 'Courier New', monospace; color: var(--color-text-primary); }
+
+.rh-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rh-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.rh-legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.rh-qps-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.rh-qps-big { font-size: 28px; font-weight: 500; font-family: 'Courier New', monospace; color: var(--color-text-primary); }
+.rh-qps-unit { font-size: 12px; color: var(--color-text-secondary); }
+
+.rh-progress-row {
+  margin-bottom: 8px;
+}
+
+.rh-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: 3px;
+}
+
+.rh-progress-track {
+  height: 5px;
+  background: var(--color-border-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rh-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s ease;
+}
+
+.rh-activity-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 80px;
+}
+</style>
+
+<div class="rh-root" id="app">
+
+  <div class="rh-header">
+    <div class="rh-logo">
+      <div class="rh-logo-icon">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="8" r="6" stroke="#e24b4a" stroke-width="1.5"/>
+          <circle cx="8" cy="8" r="3" stroke="#e24b4a" stroke-width="1.2"/>
+          <circle cx="8" cy="8" r="1" fill="#e24b4a"/>
+        </svg>
+      </div>
+      <span class="rh-logo-text">RustHole</span>
+      <span class="rh-logo-sub">DNS Dashboard</span>
+    </div>
+    <div class="rh-header-right">
+      <span class="rh-uptime" id="uptime-display"></span>
+      <div class="rh-status-badge loading" id="status-badge">
+        <span class="status-dot"></span>
+        <span id="status-text">Loading</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rh-body" id="dash-body">
+    <div class="rh-error-banner" id="error-banner" style="display:none">
+      <i class="ti ti-wifi-off" aria-hidden="true" style="font-size:14px"></i>
+      <span id="error-msg">Cannot reach RustHole API. Check that the server is running and the API_BASE is correct.</span>
+    </div>
+
+    <div>
+      <div class="rh-section-label">Query Overview</div>
+      <div class="rh-grid-4" id="overview-cards">
+        <div class="rh-metric-card"><div class="rh-metric-label">Total Queries</div><div class="rh-metric-value skeleton" style="height:26px;width:80%">&nbsp;</div></div>
+        <div class="rh-metric-card"><div class="rh-metric-label">Blocked</div><div class="rh-metric-value skeleton" style="height:26px;width:60%">&nbsp;</div></div>
+        <div class="rh-metric-card"><div class="rh-metric-label">Cache Hits</div><div class="rh-metric-value skeleton" style="height:26px;width:70%">&nbsp;</div></div>
+        <div class="rh-metric-card"><div class="rh-metric-label">Unique Clients</div><div class="rh-metric-value skeleton" style="height:26px;width:50%">&nbsp;</div></div>
+      </div>
+    </div>
+
+    <div class="rh-two-col">
+      <div class="rh-card" id="activity-card">
+        <div class="rh-card-title">Query Activity <span id="avg-qps-badge" style="font-size:11px;color:var(--color-text-secondary)"></span></div>
+        <div class="rh-qps-row" style="margin-bottom:8px">
+          <span class="rh-qps-big" id="qps-val">—</span>
+          <span class="rh-qps-unit">avg qps</span>
+          <span style="margin-left:12px;font-size:11px;color:var(--color-text-secondary)">peak: <span id="peak-qps" style="color:var(--color-text-primary);font-family:'Courier New',monospace">—</span></span>
+        </div>
+        <div class="rh-activity-canvas-wrap">
+          <canvas id="activityChart" role="img" aria-label="Query activity over time sparkline">Query activity chart loading.</canvas>
+        </div>
+      </div>
+
+      <div class="rh-card" id="stats-detail-card">
+        <div class="rh-card-title">Performance</div>
+        <div id="perf-section">
+          <div class="rh-progress-row">
+            <div class="rh-progress-label"><span>Block rate</span><span id="block-rate-pct">—</span></div>
+            <div class="rh-progress-track"><div class="rh-progress-fill bar-red" id="block-rate-bar" style="width:0%"></div></div>
+          </div>
+          <div class="rh-progress-row">
+            <div class="rh-progress-label"><span>Cache efficiency</span><span id="cache-rate-pct">—</span></div>
+            <div class="rh-progress-track"><div class="rh-progress-fill bar-blue" id="cache-rate-bar" style="width:0%"></div></div>
+          </div>
+          <div class="rh-progress-row">
+            <div class="rh-progress-label"><span>CPU usage</span><span id="cpu-pct">—</span></div>
+            <div class="rh-progress-track"><div class="rh-progress-fill bar-amber" id="cpu-bar" style="width:0%"></div></div>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:16px;">
+            <div class="rh-metric-card" style="flex:1;padding:8px 10px">
+              <div class="rh-metric-label">Avg Response</div>
+              <div class="rh-metric-value" id="avg-resp" style="font-size:16px">—</div>
+              <div class="rh-metric-sub">ms</div>
+            </div>
+            <div class="rh-metric-card" style="flex:1;padding:8px 10px">
+              <div class="rh-metric-label">Memory</div>
+              <div class="rh-metric-value" id="mem-usage" style="font-size:16px">—</div>
+              <div class="rh-metric-sub">MB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rh-grid-3">
+      <div class="rh-card">
+        <div class="rh-card-title">Record Types</div>
+        <div id="record-types-wrap">
+          <div style="position:relative;width:100%;height:120px">
+            <canvas id="recordTypeChart" role="img" aria-label="DNS record type distribution donut chart">Record type chart.</canvas>
+          </div>
+          <div id="record-types-legend" style="margin-top:8px"></div>
+        </div>
+      </div>
+	  <div class="rh-card">
+		  <div class="rh-card-title">Response Codes</div>
+		  <div id="rcodes-wrap">
+			  <div style="position:relative;width:100%;height:120px">
+				  <canvas id="rcodeChart" role="img" aria-label="DNS response code distribution chart">Response codes chart.</canvas>
+			  </div>
+			  <div id="rcodes-legend" style="margin-top:8px"></div>
+		  </div>
+	  </div>
+	  <div class="rh-card">
+		  <div class="rh-card-title">Cache</div>
+		  <div id="cache-section">
+			  <div class="rh-kv"><span class="rh-kv-key">Hits</span><span class="rh-kv-val" id="cache-hits">—</span></div>
+			  <div class="rh-kv"><span class="rh-kv-key">Misses</span><span class="rh-kv-val" id="cache-misses">—</span></div>
+			  <div class="rh-kv"><span class="rh-kv-key">Hit ratio</span><span class="rh-kv-val" id="cache-ratio">—</span></div>
+			  <div class="rh-kv"><span class="rh-kv-key">Size</span><span class="rh-kv-val" id="cache-size">—</span></div>
+			  <div class="rh-kv"><span class="rh-kv-key">Capacity</span><span class="rh-kv-val" id="cache-cap">—</span></div>
+			  <div class="rh-kv"><span class="rh-kv-key">Evictions</span><span class="rh-kv-val" id="cache-evict">—</span></div>
+		  </div>
+	  </div>
+	</div>
+
+	<div class="rh-two-col">
+		<div class="rh-card">
+			<div class="rh-card-title">Blocklists</div>
+			<div id="blocklists-wrap">
+				<table class="rh-table">
+					<thead><tr><th>List</th><th>Entries</th><th>Status</th></tr></thead>
+					<tbody id="blocklists-body"><tr><td colspan="3" class="skeleton" style="height:12px">&nbsp;</td></tr></tbody>
+				</table>
+			</div>
+		</div>
+		<div class="rh-card">
+			<div class="rh-card-title">System &amp; Resolver</div>
+			<div id="system-wrap">
+				<div class="rh-kv"><span class="rh-kv-key">Hostname</span><span class="rh-kv-val" id="sys-hostname">—</span></div>
+				<div class="rh-kv"><span class="rh-kv-key">OS</span><span class="rh-kv-val" id="sys-os">—</span></div>
+				<div class="rh-kv"><span class="rh-kv-key">Version</span><span class="rh-kv-val" id="sys-version">—</span></div>
+				<div class="rh-kv"><span class="rh-kv-key">Upstream</span><span class="rh-kv-val" id="res-upstream">—</span></div>
+				<div class="rh-kv"><span class="rh-kv-key">Protocol</span><span class="rh-kv-val" id="res-protocol">—</span></div>
+				<div class="rh-kv"><span class="rh-kv-key">DNSSEC</span><span class="rh-kv-val" id="res-dnssec">—</span></div>
+				<div class="rh-kv"><span class="rh-kv-key">Unique domains</span><span class="rh-kv-val" id="unique-domains">—</span></div>
+			</div>
+		</div>
+	</div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+	const API_BASE = "http://127.0.0.1:8080/dashboard";
+
+	const API = {
+		async fetchAll() {
+			const res = await fetch(API_BASE, { signal: AbortSignal.timeout(8000) });
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			return res.json();
+		}
+	};
+
+	const fmt = n => (typeof n === "number" ? n.toLocaleString() : "—");
+
+	function formatUptime(secs) {
+		if (!secs) return "";
+		const d = Math.floor(secs / 86400);
+		const h = Math.floor((secs % 86400) / 3600);
+		const m = Math.floor((secs % 3600) / 60);
+		const parts = [];
+		if (d) parts.push(d + "d");
+		if (h) parts.push(h + "h");
+		parts.push(m + "m");
+		return "up " + parts.join(" ");
+	}
+
+	function setStatus(state) {
+		const badge = document.getElementById("status-badge");
+		const text  = document.getElementById("status-text");
+		badge.className = "rh-status-badge " + state;
+		text.textContent = state === "connected" ? "Connected"
+			: state === "disconnected" ? "Disconnected"
+			: "Loading";
+	}
+
+	let activityChartInst   = null;
+	let recordTypeChartInst = null;
+	let rcodeChartInst      = null;
+	let chartsInitialized   = false;
+
+	const CHART_COLORS = ["#378ADD","#639922","#e24b4a","#EF9F27","#534AB7","#0F6E56","#D85A30","#3B6D11"];
+
+	function buildLegend(containerId, labels, values, colors) {
+		const el = document.getElementById(containerId);
+		if (!el) return;
+		el.innerHTML = labels.map((l, i) => {
+			const v = values[i] ?? 0;
+			return `<div class="rh-legend-item">
+	  <span class="rh-legend-dot" style="background:${colors[i % colors.length]}"></span>
+	  <span>${l}</span>
+	  <span style="margin-left:auto;font-family:'Courier New',monospace;font-size:11px;color:var(--color-text-primary)">${fmt(v)}</span>
+	</div>`;
+		}).join("");
+	}
+
+	function initActivityChart(data) {
+		const ctx = document.getElementById("activityChart");
+		if (!ctx) return;
+		const labels = Array.isArray(data) && data.length ? data.map(d => d.time || "") : Array.from({length: 24}, (_, i) => i + "h");
+		const vals   = Array.isArray(data) && data.length ? data.map(d => d.queries ?? 0) : [];
+
+		if (activityChartInst) {
+			activityChartInst.data.labels = labels;
+			activityChartInst.data.datasets[0].data = vals;
+			activityChartInst.update("none");
+			return;
+		}
+
+		activityChartInst = new Chart(ctx, {
+			type: "bar",
+			data: {
+				labels,
+				datasets: [{
+					label: "Queries",
+					data: vals,
+					backgroundColor: "rgba(55,138,221,0.5)",
+					borderColor: "#378ADD",
+					borderWidth: 1,
+					borderRadius: 2
+				}]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: { legend: { display: false } },
+				scales: { x: { display: false }, y: { display: false, beginAtZero: true } },
+				elements: { bar: { borderSkipped: false } }
+			}
+		});
+	}
+
+	function initDonutChart(canvasId, legendId, dataObj) {
+		const ctx = document.getElementById(canvasId);
+		if (!ctx) return;
+		const entries = Object.entries(dataObj || {});
+		if (!entries.length) return;
+		const labels = entries.map(e => e[0]);
+		const values = entries.map(e => Number(e[1]) || 0);
+
+		// unique color per slice — cycle through full palette if more entries than colors
+		const colors = labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+
+		const existing = canvasId === "recordTypeChart" ? recordTypeChartInst : rcodeChartInst;
+
+		if (existing) {
+			existing.data.labels = labels;
+			existing.data.datasets[0].data = values;
+			existing.data.datasets[0].backgroundColor = colors;  // re-apply colors on update too
+			existing.update("none");
+			buildLegend(legendId, labels, values, colors);
+			return;
+		}
+
+		const chart = new Chart(ctx, {
+			type: "doughnut",
+			data: {
+				labels,
+				datasets: [{
+					data: values,
+					backgroundColor: colors,
+					borderWidth: 2,
+					borderColor: "#141414",   // dark gap between slices makes them visually distinct
+					hoverOffset: 6
+				}]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				cutout: "65%",
+				plugins: { legend: { display: false } },
+				animation: { animateRotate: true, duration: 600 }
+			}
+		});
+
+		if (canvasId === "recordTypeChart") recordTypeChartInst = chart;
+		else rcodeChartInst = chart;
+		buildLegend(legendId, labels, values, colors);
+	}
+
+	function populateStats(stats) {
+		if (!stats) return;
+		const total       = stats.total_queries   || 0;
+		const blocked     = stats.blocked_queries || 0;
+		const allowed     = stats.allowed_queries || 0;
+		const cacheHits   = stats.cache_hits      || 0;
+		const cacheMisses = stats.cache_misses    || 0;
+		const cacheTotal  = (cacheHits + cacheMisses) || 1;
+		const blockPct    = total ? (blocked / total) * 100 : 0;
+		const cachePct    = (cacheHits / cacheTotal) * 100;
+		const cpuPct      = stats.cpu_usage_percent ?? 0;
+
+		document.getElementById("overview-cards").innerHTML = `
+	<div class="rh-metric-card">
+	  <div class="rh-metric-label">Total Queries</div>
+	  <div class="rh-metric-value">${fmt(total)}</div>
+	  <div class="rh-metric-sub">${fmt(allowed)} allowed</div>
+	</div>
+	<div class="rh-metric-card">
+	  <div class="rh-metric-label">Blocked</div>
+	  <div class="rh-metric-value" style="color:#e24b4a">${fmt(blocked)}</div>
+	  <div class="rh-metric-sub">${blockPct.toFixed(1)}% block rate</div>
+	  <div class="rh-metric-bar"><div class="rh-metric-bar-fill bar-red" style="width:${Math.min(blockPct,100)}%"></div></div>
+	</div>
+	<div class="rh-metric-card">
+	  <div class="rh-metric-label">Cache Hits</div>
+	  <div class="rh-metric-value" style="color:#378ADD">${fmt(cacheHits)}</div>
+	  <div class="rh-metric-sub">${cachePct.toFixed(1)}% of queries</div>
+	  <div class="rh-metric-bar"><div class="rh-metric-bar-fill bar-blue" style="width:${Math.min(cachePct,100)}%"></div></div>
+	</div>
+	<div class="rh-metric-card">
+	  <div class="rh-metric-label">Unique Clients</div>
+	  <div class="rh-metric-value">${fmt(stats.unique_clients)}</div>
+	  <div class="rh-metric-sub">${fmt(stats.unique_domains)} domains</div>
+	</div>`;
+
+		const computedQps = stats.uptime_seconds ? (stats.total_queries / stats.uptime_seconds) : 0;
+		document.getElementById("qps-val").textContent        = computedQps.toFixed(2);
+		document.getElementById("peak-qps").textContent       = fmt(stats.peak_qps);
+		document.getElementById("block-rate-pct").textContent = blockPct.toFixed(1) + "%";
+		document.getElementById("block-rate-bar").style.width = Math.min(blockPct, 100) + "%";
+		document.getElementById("cache-rate-pct").textContent = cachePct.toFixed(1) + "%";
+		document.getElementById("cache-rate-bar").style.width = Math.min(cachePct, 100) + "%";
+		document.getElementById("cpu-pct").textContent        = cpuPct.toFixed(1) + "%";
+		document.getElementById("cpu-bar").style.width        = Math.min(cpuPct, 100) + "%";
+		document.getElementById("avg-resp").textContent       = stats.avg_response_time_ms != null ? stats.avg_response_time_ms.toFixed(1) : "—";
+		document.getElementById("mem-usage").textContent      = stats.memory_usage_mb != null ? Math.round(stats.memory_usage_mb) : "—";
+		document.getElementById("unique-domains").textContent = fmt(stats.unique_domains);
+
+		if (stats.uptime_seconds) {
+			document.getElementById("uptime-display").textContent = formatUptime(
+				Math.floor(Date.now() / 1000) - stats.uptime_seconds
+			);
+		}
+	}
+
+	function populateTopDomainsTable(tbodyId, rows) {
+		const el = document.getElementById(tbodyId);
+		if (!el) return;
+		if (!Array.isArray(rows) || !rows.length) {
+			el.innerHTML = `<tr><td colspan="2" style="color:var(--color-text-secondary);font-size:11px;padding-top:8px">No data</td></tr>`;
+			return;
+		}
+		el.innerHTML = rows.slice(0, 8).map(r => {
+			const key = r.domain || r.name || Object.values(r)[0] || "—";
+			const val = r.count  || r.queries || Object.values(r)[1] || 0;
+			return `<tr><td class="td-domain" title="${key}">${key}</td><td>${fmt(val)}</td></tr>`;
+		}).join("");
+	}
+
+	function populateTopClients(tbodyId, clientsObj) {
+		const el = document.getElementById(tbodyId);
+		if (!el) return;
+		const entries = Object.entries(clientsObj || {});
+		if (!entries.length) {
+			el.innerHTML = `<tr><td colspan="2" style="color:var(--color-text-secondary);font-size:11px;padding-top:8px">No data</td></tr>`;
+			return;
+		}
+		el.innerHTML = entries.sort((a, b) => b[1] - a[1]).slice(0, 8).map(([ip, count]) =>
+			`<tr><td class="td-domain" title="${ip}">${ip}</td><td>${fmt(count)}</td></tr>`
+		).join("");
+	}
+
+	function populateBlocklists(data) {
+		const el = document.getElementById("blocklists-body");
+		if (!el) return;
+		if (!Array.isArray(data) || !data.length) {
+			el.innerHTML = `<tr><td colspan="3" style="color:var(--color-text-secondary);font-size:11px">No blocklists configured</td></tr>`;
+			return;
+		}
+		el.innerHTML = data.map(bl => {
+			const enabled = bl.enabled !== false;
+			return `<tr>
+	  <td class="td-domain" title="${bl.name || bl.url || '—'}">${bl.name || bl.url || "—"}</td>
+	  <td>${fmt(bl.entries ?? bl.count ?? bl.size)}</td>
+	  <td><span class="rh-badge ${enabled ? 'badge-allowed' : 'badge-blocked'}">${enabled ? "active" : "off"}</span></td>
+	</tr>`;
+		}).join("");
+	}
+
+	function populateCache(cache, stats) {
+		const hits   = stats?.cache_hits   ?? null;
+		const misses = stats?.cache_misses ?? null;
+		const total  = (hits + misses) || 1;
+		const ratio  = (hits != null && misses != null) ? ((hits / total) * 100).toFixed(1) + "%" : "—";
+		document.getElementById("cache-hits").textContent   = fmt(hits);
+		document.getElementById("cache-misses").textContent = fmt(misses);
+		document.getElementById("cache-ratio").textContent  = ratio;
+		document.getElementById("cache-size").textContent   = fmt(cache?.size ?? cache?.current_size);
+		document.getElementById("cache-cap").textContent    = fmt(cache?.capacity ?? cache?.max_size);
+		document.getElementById("cache-evict").textContent  = fmt(cache?.evictions);
+	}
+
+	function populateSystem(sys, res) {
+		document.getElementById("sys-hostname").textContent = sys?.hostname || "—";
+		document.getElementById("sys-os").textContent       = sys?.os || sys?.platform || "—";
+		document.getElementById("sys-version").textContent  = sys?.version || "—";
+		document.getElementById("res-upstream").textContent = res?.upstream || "—";
+		document.getElementById("res-dnssec").textContent   = res?.dnssec != null ? (res.dnssec ? "enabled" : "disabled") : "—";
+	}
+
+	async function init() {
+		const firstLoad = !chartsInitialized;
+		if (firstLoad) setStatus("loading");
+
+		let data;
+		try {
+			data = await API.fetchAll();
+		} catch (err) {
+			setStatus("disconnected");
+			document.getElementById("error-banner").style.display = "flex";
+			document.getElementById("error-msg").textContent =
+				`Cannot reach RustHole at ${API_BASE}. (${err.message})`;
+			return;
+		}
+
+		// only hide the banner and set connected on success
+		document.getElementById("error-banner").style.display = "none";
+		setStatus("connected");
+		chartsInitialized = true;
+
+		const {
+			stats          = {},
+			analytics      = {},
+			blocklists     = [],
+			top_domains    = [],
+			top_blocked    = [],
+			top_clients    = {},
+			record_types   = {},
+			response_codes = {},
+			cache          = {},
+			activity       = [],
+			resolver       = {},
+			system         = {}
+		} = data;
+
+		populateStats(stats);
+		populateTopDomainsTable("top-domains-body", top_domains);
+		populateTopDomainsTable("top-blocked-body", top_blocked);
+		populateTopClients("top-clients-body", top_clients);
+		populateBlocklists(blocklists);
+		populateCache(cache, stats);
+		populateSystem(system, resolver);
+
+		const timeline = activity.length ? activity : (analytics?.timeline || []);
+		initActivityChart(timeline);
+		if (Object.keys(record_types).length)   initDonutChart("recordTypeChart", "record-types-legend", record_types);
+		if (Object.keys(response_codes).length) initDonutChart("rcodeChart", "rcodes-legend", response_codes);
+	}
+
+	init();
+	setInterval(init, 2000);
+</script>
