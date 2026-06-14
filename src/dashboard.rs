@@ -1,29 +1,21 @@
-#![allow(unused)]
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicU64;
-use std::time::Instant;
 use std::io::Result;
-use std::{io::Write, net::TcpListener};
 use std::collections::HashMap;
 use axum::extract::State;
 use axum::{Json, Router};
 use axum::response::{Html, IntoResponse};
-use axum::routing::get;
+use axum::routing::{get, post};
 use serde::{Deserialize, Serialize};
-use tokio::time;
+use crate::misc::get_blacklisted_domains;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dashboard {
     pub stats: Stats, // This
-    pub analytics: Analytics,
     pub blocklists: Vec<Blocklist>, // This
-    pub top_domains: Vec<DomainStat>,
-    pub top_blocked: Vec<DomainStat>,
-    pub top_clients: Mutex<HashMap<String, u64>>, // Make this Client: queries
     pub record_types: Mutex<HashMap<String, u64>>,
     pub response_codes: Mutex<HashMap<String, u64>>,
     pub cache: CacheStats,
-    pub activity: Vec<ActivityEntry>,
     pub resolver: ResolverInfo,
     pub system: SystemInfo,
 }
@@ -52,43 +44,17 @@ pub struct Stats {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Analytics {
-    pub timeline: Vec<TimelinePoint>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TimelinePoint {
-    pub time: String,
-    pub queries: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Blocklist {
     pub name: String,
     pub entries: u64,
     pub enabled: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DomainStat {
-    pub domain: String,
-    pub count: u64,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheStats {
     pub size: AtomicU64,
     pub capacity: usize,
-
     pub evictions: AtomicU64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActivityEntry {
-    pub timestamp: String,
-    pub client: String,
-    pub domain: String,
-    pub action: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,17 +95,7 @@ impl Dashboard {
                 uptime_seconds: get_time(),
             },
 
-            analytics: Analytics {
-                timeline: Vec::new(),
-            },
-
             blocklists: Vec::new(),
-
-            top_domains: Vec::new(),
-
-            top_blocked: Vec::new(),
-
-            top_clients: Mutex::new(HashMap::new()),
 
             record_types: Mutex::new(HashMap::new()),
 
@@ -152,7 +108,6 @@ impl Dashboard {
                 evictions: AtomicU64::new(0),
             },
 
-            activity: Vec::new(),
 
             resolver: ResolverInfo {
                 upstream: String::new(),
@@ -167,10 +122,6 @@ impl Dashboard {
             },
         }
     }
-
-    fn to_le_string(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
 }
 
 fn get_time() -> u64 {
@@ -182,27 +133,179 @@ fn get_time() -> u64 {
     }
 }
 
-pub async fn start_api(addrs: &str, body: Arc<Dashboard>) -> Result<()> {
-    let listener = tokio::net::TcpListener::bind(addrs).await?;
+fn cpu_usage() -> f64 {
+    let (total_1, busy_1) = match std::fs::read_to_string("/proc/stat") {
+        Ok(data) => {
+            let (data, _) = match data.split_once("\n") {
+                Some(x) => x,
+                None => ("", ""),
+            };
+
+            let a = data
+                .split_whitespace()
+                .filter_map(|f| f.parse::<u64>().ok())
+                .collect::<Vec<_>>();
+
+            let x = a[0] + a[1] + a[2] + a[3] + a[4] + a[5] + a[6] + a[7];
+            let y = x - a[3] - a[4];
+
+            (x,y)
+        },
+        Err(_) => {
+            return 0.0;
+        }
+    };
+
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let (total_2, busy_2) = match std::fs::read_to_string("/proc/stat") {
+        Ok(data) => {
+            let (data, _) = match data.split_once("\n") {
+                Some(x) => x,
+                None => ("", ""),
+            };
+
+            let a = data
+                .split_whitespace()
+                .filter_map(|f| f.parse::<u64>().ok())
+                .collect::<Vec<_>>();
+
+            let x = a[0] + a[1] + a[2] + a[3] + a[4] + a[5] + a[6] + a[7];
+            let y = x - a[3] - a[4];
+
+            (x,y)
+        },
+        Err(_) => {
+            return 0.0;
+        }
+    };
+
+    ((busy_2 - busy_1) as f64 / (total_2 - total_1) as f64) * 100.0
+}
+
+pub async fn start_api(addrs: String, configs: Arc<crate::RuntimeState>) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind(&addrs).await?;
+    println!("Dashboard Hosted on http://{}", &addrs);
 
     let app = Router::new()
         .route("/", get(handler))
+        .route("/api", post(api))
         .route("/dashboard", get(dashboard_data))
-        .with_state(body);
+        .with_state((configs, addrs));
 
     axum::serve(listener, app).await
 }
 
-async fn handler() -> Html<String> {
+async fn handler(
+    State((_, addrs)): State<(Arc<crate::RuntimeState>, String)>
+) -> Html<String> {
     let data = std::fs::read_to_string("index.html")
         .unwrap_or_else(|error|
             format!( r#"<!doctype html><html><body> <h1>Error</h1> <p>{}</p> </body> </html>"#,
                 error.to_string())
         );
 
+    let data = data.replace("<<<ADDRS>>>", &addrs);
+
     Html(data)
 }
 
-async fn dashboard_data(State(body): State<Arc<Dashboard>>) -> impl IntoResponse {
-    serde_json::to_string(body.as_ref()).unwrap()
+async fn dashboard_data(
+    State((body, _)): State<(Arc<crate::RuntimeState>, String)>
+) -> impl IntoResponse {
+
+    match body.dashboard.write() {
+        Ok(mut guard) => {
+            guard.stats.cpu_usage_percent = cpu_usage();
+        },
+        Err(err) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Lock poisoned: {}", err),
+            ).into_response();
+        }
+    }
+
+    // Update dashboard data here
+    let dash = match body.dashboard.read() {
+        Ok(guard) => guard,
+        Err(err) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Lock poisoned: {}", err),
+            ).into_response();
+        }
+    };
+
+    match serde_json::to_string(&*dash) {
+        Ok(json) => (axum::http::StatusCode::OK, json).into_response(),
+        Err(err) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Serialization failed: {}", err),
+        ).into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct Data {
+    upstreams: Vec<String>,
+    blocklists: Vec<String>
+}
+
+#[derive(Serialize)]
+struct Response {
+    ok: bool,
+}
+
+async fn api(
+    State((config, _)): State<(Arc<crate::RuntimeState>, String)>,
+    Json(data): Json<Data>
+) -> impl IntoResponse {
+    if !data.upstreams.is_empty() {
+        match config.mutable.write() {
+            Ok(mut guard) => guard.upstream_servers.servers.extend_from_slice(&data.upstreams),
+            Err(err) => {
+                return (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Lock poisoned: {}", err),
+                ).into_response();
+            }
+        }
+    }
+
+    if !data.blocklists.is_empty() {
+        let new_blocklist_domains = match config.dashboard.write() {
+            Ok(mut guard) => match get_blacklisted_domains(&data.blocklists, &mut guard) {
+                Ok(domains) => domains,
+                Err(err) => {
+                    return (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to get blacklisted domains: {}", err),
+                    ).into_response();
+                }
+            },
+            Err(err) => {
+                return (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Lock poisoned: {}", err),
+                ).into_response();
+            }
+        };
+
+        match config.mutable.write() {
+            Ok(mut guard) => guard.blacklist.extend(new_blocklist_domains),
+            Err(err) => {
+                return (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Lock poisoned: {}", err),
+                ).into_response();
+            }
+        }
+    }
+
+
+    (
+        axum::http::StatusCode::OK,
+        Json(Response { ok: true }),
+    ).into_response()
 }

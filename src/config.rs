@@ -16,6 +16,7 @@ pub struct TomlConfig {
 pub struct Server {
     pub listen_addr_ipv4: String,
     pub listen_addr_ipv6: String,
+    pub dashboard: String,
     pub tcp_enabled: bool,
 }
 
@@ -39,6 +40,7 @@ const TOML_FILE_BASIC_CONFIG: &str =
 r#"[server]
 listen_addr_ipv4 = "127.0.0.1:2053"
 listen_addr_ipv6 = "[::1]:2053"
+dashboard = "127.0.0.1:8000"
 tcp_enabled = false
 
 [cache]

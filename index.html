@@ -390,6 +390,281 @@ body { font-family: var(--font-mono, monospace); }
   width: 100%;
   height: 80px;
 }
+
+/* ── Config Panel ── */
+.rh-config-btn {
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.rh-config-btn:hover { border-color: var(--color-border-secondary); color: var(--color-text-primary); }
+
+.rh-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.rh-modal-overlay.open { display: flex; }
+
+.rh-modal {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  width: 560px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px 22px;
+  position: relative;
+}
+
+.rh-modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rh-modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.rh-modal-close:hover { color: var(--color-text-primary); }
+
+.rh-subsection {
+  margin-bottom: 20px;
+}
+.rh-subsection-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+/* upstream list */
+.rh-upstream-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.rh-upstream-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  color: var(--color-text-primary);
+}
+.rh-upstream-row span { flex: 1; }
+.rh-upstream-row .rh-del-btn {
+  background: none;
+  border: none;
+  color: #e24b4a;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.rh-upstream-row .rh-del-btn:hover { opacity: 1; }
+
+.rh-add-row {
+  display: flex;
+  gap: 6px;
+}
+.rh-text-input {
+  flex: 1;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.rh-text-input:focus { border-color: #378ADD; }
+.rh-text-input::placeholder { color: var(--color-text-secondary); }
+
+.rh-add-btn {
+  background: #1e3a55;
+  border: 0.5px solid #378ADD44;
+  border-radius: 6px;
+  color: #378ADD;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rh-add-btn:hover { background: #264a6e; }
+
+/* preset chips */
+.rh-preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.rh-preset-chip {
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-family: 'Courier New', monospace;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.rh-preset-chip:hover { border-color: #378ADD88; color: var(--color-text-primary); }
+.rh-preset-chip.active { border-color: #378ADD; color: #378ADD; background: #1e3a55; }
+
+/* blocklist entries */
+.rh-bl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.rh-bl-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.rh-bl-row .rh-bl-path {
+  flex: 1;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rh-bl-row .rh-bl-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1e3a55;
+  color: #378ADD;
+  white-space: nowrap;
+}
+.rh-bl-row .rh-bl-tag.sys { background: #1b3622; color: #639922; }
+
+/* system blacklist selector */
+.rh-sys-bl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.rh-sys-bl-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.rh-sys-bl-item:hover { border-color: var(--color-border-secondary); }
+.rh-sys-bl-item.selected { border-color: #639922; }
+.rh-sys-bl-item input[type=checkbox] { accent-color: #639922; margin: 0; cursor: pointer; }
+.rh-sys-bl-item label {
+  cursor: pointer;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  color: var(--color-text-secondary);
+  flex: 1;
+  line-height: 1.3;
+}
+.rh-sys-bl-item label span { display: block; font-size: 10px; color: #555; }
+
+/* path picker row */
+.rh-path-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.rh-path-row .rh-text-input { font-size: 11px; }
+
+.rh-divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 14px 0; }
+
+/* action footer */
+.rh-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.rh-btn-secondary {
+  background: none;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.rh-btn-secondary:hover { color: var(--color-text-primary); }
+.rh-btn-primary {
+  background: #378ADD;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 7px 18px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.rh-btn-primary:hover { background: #2d6eb5; }
+.rh-btn-primary:disabled { background: #264a6e; color: #78a7cc; cursor: not-allowed; }
+
+.rh-save-msg {
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  margin-right: auto;
+  min-height: 16px;
+}
+.rh-save-msg.ok  { color: #639922; }
+.rh-save-msg.err { color: #e24b4a; }
 </style>
 
 <div class="rh-root" id="app">
@@ -408,9 +683,93 @@ body { font-family: var(--font-mono, monospace); }
     </div>
     <div class="rh-header-right">
       <span class="rh-uptime" id="uptime-display"></span>
+      <button class="rh-config-btn" id="open-config-btn" onclick="openConfigModal()">
+        ⚙ Configure
+      </button>
       <div class="rh-status-badge loading" id="status-badge">
         <span class="status-dot"></span>
         <span id="status-text">Loading</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Config Modal ── -->
+  <div class="rh-modal-overlay" id="config-modal-overlay">
+    <div class="rh-modal">
+      <div class="rh-modal-title">
+        <span>Server Configuration</span>
+        <button class="rh-modal-close" onclick="closeConfigModal()">✕</button>
+      </div>
+
+      <!-- UPSTREAM SERVERS -->
+      <div class="rh-subsection">
+        <div class="rh-subsection-title">Upstream DNS Servers</div>
+        <div class="rh-preset-chips" id="upstream-presets">
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('1.1.1.1:53')">Cloudflare 1.1.1.1:53</button>
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('1.0.0.1:53')">Cloudflare 1.0.0.1:53</button>
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('8.8.8.8:53')">Google 8.8.8.8:53</button>
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('8.8.4.4:53')">Google 8.8.4.4:53</button>
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('9.9.9.9:53')">Quad9 9.9.9.9:53</button>
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('149.112.112.112:53')">Quad9 alt</button>
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('94.140.14.14:53')">AdGuard</button>
+          <button class="rh-preset-chip" onclick="addUpstreamPreset('208.67.222.222:53')">OpenDNS</button>
+        </div>
+        <div class="rh-upstream-list" id="upstream-list"></div>
+        <div class="rh-add-row">
+          <input class="rh-text-input" id="upstream-input" placeholder="e.g. 1.1.1.1:53 or tls://dns.cloudflare.com" />
+          <button class="rh-add-btn" onclick="addUpstream()">+ Add</button>
+        </div>
+      </div>
+
+      <hr class="rh-divider" />
+
+      <!-- SYSTEM BLOCKLISTS -->
+      <div class="rh-subsection">
+        <div class="rh-subsection-title">System Blocklists</div>
+        <div class="rh-sys-bl-grid" id="sys-bl-grid">
+          <div class="rh-sys-bl-item" id="sysbl-hosts" onclick="toggleSysBl(this,'sysbl-hosts','/etc/hosts')">
+            <input type="checkbox" id="cb-hosts" />
+            <label for="cb-hosts">/etc/hosts<span>Local hosts file</span></label>
+          </div>
+          <div class="rh-sys-bl-item" id="sysbl-stevenblack" onclick="toggleSysBl(this,'sysbl-stevenblack','/etc/rusthole/lists/stevenblack.txt')">
+            <input type="checkbox" id="cb-stevenblack" />
+            <label for="cb-stevenblack">StevenBlack<span>/etc/rusthole/lists/stevenblack.txt</span></label>
+          </div>
+          <div class="rh-sys-bl-item" id="sysbl-oisd" onclick="toggleSysBl(this,'sysbl-oisd','/etc/rusthole/lists/oisd.txt')">
+            <input type="checkbox" id="cb-oisd" />
+            <label for="cb-oisd">OISD Full<span>/etc/rusthole/lists/oisd.txt</span></label>
+          </div>
+          <div class="rh-sys-bl-item" id="sysbl-hagezi" onclick="toggleSysBl(this,'sysbl-hagezi','/etc/rusthole/lists/hagezi-pro.txt')">
+            <input type="checkbox" id="cb-hagezi" />
+            <label for="cb-hagezi">HaGeZi Pro<span>/etc/rusthole/lists/hagezi-pro.txt</span></label>
+          </div>
+          <div class="rh-sys-bl-item" id="sysbl-easylist" onclick="toggleSysBl(this,'sysbl-easylist','/etc/rusthole/lists/easylist.txt')">
+            <input type="checkbox" id="cb-easylist" />
+            <label for="cb-easylist">EasyList<span>/etc/rusthole/lists/easylist.txt</span></label>
+          </div>
+          <div class="rh-sys-bl-item" id="sysbl-malware" onclick="toggleSysBl(this,'sysbl-malware','/etc/rusthole/lists/malware.txt')">
+            <input type="checkbox" id="cb-malware" />
+            <label for="cb-malware">Malware Domains<span>/etc/rusthole/lists/malware.txt</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- CUSTOM BLOCKLIST PATHS -->
+      <div class="rh-subsection">
+        <div class="rh-subsection-title">Custom Blocklist Paths</div>
+        <div class="rh-bl-list" id="bl-list"></div>
+        <div class="rh-path-row">
+          <input class="rh-text-input" id="bl-path-input" placeholder="./path/to/blocklist.txt" />
+          <button class="rh-add-btn" onclick="addBlocklistPath()">+ Add</button>
+        </div>
+      </div>
+
+      <hr class="rh-divider" />
+
+      <div class="rh-modal-footer">
+        <span class="rh-save-msg" id="save-msg"></span>
+        <button class="rh-btn-secondary" onclick="closeConfigModal()">Cancel</button>
+        <button class="rh-btn-primary" id="apply-btn" onclick="applyConfig()">Apply</button>
       </div>
     </div>
   </div>
@@ -536,7 +895,7 @@ body { font-family: var(--font-mono, monospace); }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-	const API_BASE = "http://127.0.0.1:8080/dashboard";
+	const API_BASE = "http://<<<ADDRS>>>/dashboard";
 
 	const API = {
 		async fetchAll() {
@@ -845,4 +1204,166 @@ body { font-family: var(--font-mono, monospace); }
 
 	init();
 	setInterval(init, 2000);
+
+	// ── Config Modal State ──────────────────────────────────────────────────────
+	const configState = {
+		upstreams: [],       // ["1.1.1.1:53", ...]
+		sysBlocklists: [],   // ["/etc/hosts", ...]
+		customBlocklists: [] // ["./path/to/list.txt", ...]
+	};
+
+	function openConfigModal() {
+		document.getElementById("config-modal-overlay").classList.add("open");
+		renderUpstreamList();
+		renderBlList();
+	}
+	function closeConfigModal() {
+		document.getElementById("config-modal-overlay").classList.remove("open");
+		document.getElementById("save-msg").textContent = "";
+		document.getElementById("save-msg").className = "rh-save-msg";
+	}
+	// close on overlay click
+	document.getElementById("config-modal-overlay").addEventListener("click", function(e) {
+		if (e.target === this) closeConfigModal();
+	});
+
+	// ── Upstream servers ────────────────────────────────────────────────────────
+	function renderUpstreamList() {
+		const el = document.getElementById("upstream-list");
+		if (!configState.upstreams.length) {
+			el.innerHTML = `<div style="font-size:11px;color:var(--color-text-secondary);padding:4px 0">No upstreams configured yet</div>`;
+			return;
+		}
+		el.innerHTML = configState.upstreams.map((u, i) => `
+			<div class="rh-upstream-row">
+				<span>${u}</span>
+				<button class="rh-del-btn" title="Remove" onclick="removeUpstream(${i})">✕</button>
+			</div>`).join("");
+	}
+
+	function addUpstreamPreset(addr) {
+		if (configState.upstreams.includes(addr)) return;
+		configState.upstreams.push(addr);
+		renderUpstreamList();
+	}
+
+	function addUpstream() {
+		const inp = document.getElementById("upstream-input");
+		const val = inp.value.trim();
+		if (!val) return;
+		if (!configState.upstreams.includes(val)) {
+			configState.upstreams.push(val);
+			renderUpstreamList();
+		}
+		inp.value = "";
+	}
+
+	document.getElementById("upstream-input").addEventListener("keydown", function(e) {
+		if (e.key === "Enter") addUpstream();
+	});
+
+	function removeUpstream(idx) {
+		configState.upstreams.splice(idx, 1);
+		renderUpstreamList();
+	}
+
+	// ── System blocklists ───────────────────────────────────────────────────────
+	function toggleSysBl(rowEl, id, path) {
+		const cb = rowEl.querySelector("input[type=checkbox]");
+		// toggle (click on row, not directly on checkbox, so we flip manually)
+		cb.checked = !cb.checked;
+		rowEl.classList.toggle("selected", cb.checked);
+		if (cb.checked) {
+			if (!configState.sysBlocklists.includes(path)) configState.sysBlocklists.push(path);
+		} else {
+			configState.sysBlocklists = configState.sysBlocklists.filter(p => p !== path);
+		}
+		renderBlList();
+	}
+
+	// ── Custom blocklist paths ──────────────────────────────────────────────────
+	function renderBlList() {
+		const el = document.getElementById("bl-list");
+		const allEntries = [
+			...configState.sysBlocklists.map(p => ({ path: p, tag: "sys", label: "system" })),
+			...configState.customBlocklists.map(p => ({ path: p, tag: "custom", label: "custom" }))
+		];
+		if (!allEntries.length) {
+			el.innerHTML = `<div style="font-size:11px;color:var(--color-text-secondary);padding:4px 0">No blocklists added yet</div>`;
+			return;
+		}
+		el.innerHTML = allEntries.map((e, i) => `
+			<div class="rh-bl-row">
+				<span class="rh-bl-path" title="${e.path}">${e.path}</span>
+				<span class="rh-bl-tag ${e.tag === 'sys' ? 'sys' : ''}">${e.label}</span>
+				<button class="rh-del-btn" title="Remove" onclick="removeBlEntry('${e.tag}','${e.path.replace(/'/g,"\\'")}')">✕</button>
+			</div>`).join("");
+	}
+
+	function addBlocklistPath() {
+		const inp = document.getElementById("bl-path-input");
+		const val = inp.value.trim();
+		if (!val) return;
+		if (!configState.customBlocklists.includes(val)) {
+			configState.customBlocklists.push(val);
+			renderBlList();
+		}
+		inp.value = "";
+	}
+
+	document.getElementById("bl-path-input").addEventListener("keydown", function(e) {
+		if (e.key === "Enter") addBlocklistPath();
+	});
+
+	function removeBlEntry(tag, path) {
+		if (tag === "sys") {
+			configState.sysBlocklists = configState.sysBlocklists.filter(p => p !== path);
+			// uncheck corresponding checkbox
+			document.querySelectorAll(".rh-sys-bl-item").forEach(row => {
+				const cb = row.querySelector("input[type=checkbox]");
+				if (cb && row.querySelector("label span") &&
+					row.querySelector("label span").textContent === path) {
+					cb.checked = false;
+					row.classList.remove("selected");
+				}
+			});
+		} else {
+			configState.customBlocklists = configState.customBlocklists.filter(p => p !== path);
+		}
+		renderBlList();
+	}
+
+	// ── Apply / POST ────────────────────────────────────────────────────────────
+	async function applyConfig() {
+		const btn = document.getElementById("apply-btn");
+		const msg = document.getElementById("save-msg");
+		btn.disabled = true;
+		msg.textContent = "Applying…";
+		msg.className = "rh-save-msg";
+
+		const payload = {
+			upstreams: configState.upstreams,
+			blocklists: [
+				...configState.sysBlocklists,
+				...configState.customBlocklists
+			]
+		};
+
+		try {
+			const res = await fetch(`${API_BASE.replace(/\/dashboard$/, "")}/api`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+				signal: AbortSignal.timeout(8000)
+			});
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			msg.textContent = "✓ Config applied";
+			msg.className = "rh-save-msg ok";
+		} catch (err) {
+			msg.textContent = `✗ ${err.message}`;
+			msg.className = "rh-save-msg err";
+		} finally {
+			btn.disabled = false;
+		}
+	}
 </script>

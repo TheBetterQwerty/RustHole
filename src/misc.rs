@@ -6,6 +6,8 @@ use std::collections::HashSet;
 use hickory_proto::{op::Message, rr::{Name, RData, Record}};
 use regex::Regex;
 
+use crate::dashboard::Dashboard;
+
 #[allow(non_snake_case)]
 pub fn create_record_A(domain: Name, ip: Ipv4Addr) -> Record {
     Record::from_rdata(
@@ -32,6 +34,7 @@ pub fn create_response(request: &Message, record: Record) -> Message {
     resp_pkt.add_answer(record);
 
     if request.edns.is_some() {
+        // Safe unwrap
         resp_pkt.set_edns(request.edns.clone().unwrap());
     }
 
@@ -57,7 +60,7 @@ pub fn get_domain(request: &Message) -> Option<Name> {
     }
 }
 
-pub fn get_blacklisted_domains(files: &[String], dash: &mut crate::dashboard::Dashboard) -> Result<HashSet<Name>, String> {
+pub fn get_blacklisted_domains(files: &[String], dash: &mut Dashboard) -> Result<HashSet<Name>, String> {
     let mut domains: HashSet<Name> = HashSet::new();
     let regex = Regex::new(r#"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\.?\b"#)
         .map_err(|e| format!("{e}"))?;
