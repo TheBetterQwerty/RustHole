@@ -34,15 +34,13 @@ It blocks blacklisted domains locally and forwards allowed DNS queries to upstre
 
 7. RustHole now supports IPV6 packets.
 
+8. Web Dashboard that allows adding of more upstream dns servers and blocklists
+
 ---
 
 # Future Updates
 
 * DNS-over-HTTPS upstream support
 * TCP DNS support
-* Web dashboard
-* Real-time query monitoring
-* Query logging
-* Configurable block responses
 * Blocklist auto-updates
 * Rate limiting
