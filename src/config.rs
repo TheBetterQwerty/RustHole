@@ -10,6 +10,12 @@ pub struct TomlConfig {
     pub cache: Cache,
     pub upstream: Upstream,
     pub blacklist: Blacklist,
+    pub assets: Assets,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Assets {
+    pub folder: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -42,6 +48,9 @@ listen_addr_ipv4 = "127.0.0.1:2053"
 listen_addr_ipv6 = "[::1]:2053"
 dashboard = "127.0.0.1:8000"
 tcp_enabled = false
+
+[assets]
+folder = ""
 
 [cache]
 max_cache = 10000

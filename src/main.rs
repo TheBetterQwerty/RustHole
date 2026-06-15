@@ -233,5 +233,11 @@ async fn main() {
     });
 
     // start_api
-    let _ = dashboard::start_api(config.server.dashboard, state).await;
+    let _ = dashboard::start_api(
+        dashboard::ApiConfig {
+            addrs: config.server.dashboard,
+            assets: config.assets.folder,
+        },
+        state
+    ).await;
 }

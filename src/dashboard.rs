@@ -185,42 +185,47 @@ fn cpu_usage() -> f64 {
     ((busy_2 - busy_1) as f64 / (total_2 - total_1) as f64) * 100.0
 }
 
-pub async fn start_api(addrs: String, configs: Arc<crate::RuntimeState>) -> Result<()> {
-    let listener = tokio::net::TcpListener::bind(&addrs).await?;
-    println!("Dashboard Hosted on http://{}", &addrs);
+pub struct ApiConfig {
+    pub addrs: String,
+    pub assets: String
+}
+
+pub async fn start_api(apiconf: ApiConfig, configs: Arc<crate::RuntimeState>) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind(&apiconf.addrs).await?;
+    println!("Dashboard Hosted on http://{}", &apiconf.addrs);
 
     let app = Router::new()
         .route("/", get(handler))
         .route("/favicon", get(favicon))
         .route("/api", post(api))
         .route("/dashboard", get(dashboard_data))
-        .with_state((configs, addrs));
+        .with_state((configs, apiconf.assets));
 
     axum::serve(listener, app).await
 }
 
 async fn handler(
-    State((_, addrs)): State<(Arc<crate::RuntimeState>, String)>
+    State((_, folder)): State<(Arc<crate::RuntimeState>, String)>
 ) -> Html<String> {
-    let data = std::fs::read_to_string(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/index.html")
-        )
+    let path = format!("{}/{}", folder, "index.html");
+    let data = std::fs::read_to_string(&path)
         .unwrap_or_else(|error|
             format!( r#"<!doctype html><html><body> <h1>Error</h1> <p>{}</p> </body> </html>"#,
                 error.to_string())
         );
 
-    let data = data.replace("<<<ADDRS>>>", &addrs);
+    println!("Path: {}", path);
 
     Html(data)
 }
 
-async fn favicon() -> OtherResponse<Body> {
-    let data = tokio::fs::read(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/dns_icon.png")
+async fn favicon(
+    State((_, folder)): State<(Arc<crate::RuntimeState>, String)>
+) -> OtherResponse<Body> {
+    let data = std::fs::read(
+            format!("{}/{}", folder, "dns_icon.png")
         )
-        .await
-        .expect("Error: Wrong path");
+        .unwrap_or(vec![0]);
 
     OtherResponse::builder()
         .header(
