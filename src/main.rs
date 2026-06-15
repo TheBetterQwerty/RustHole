@@ -1,10 +1,11 @@
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::{Arc, RwLock};
 use std::str::FromStr;
 use std::{
     collections::{HashMap, HashSet},
 };
 use hickory_proto::rr::{DNSClass, Name, RecordType};
+use socket2::{Domain, Socket, Type};
 use tokio::net::UdpSocket;
 use crate::config::Upstream;
 use crate::dashboard::Dashboard;
@@ -119,14 +120,49 @@ async fn main() {
         }
     };
 
-    let socket_ipv6 = match UdpSocket::bind(&config.server.listen_addr_ipv6).await {
-        Ok(x) => {
-            println!("and {} <<>>", &config.server.listen_addr_ipv6);
-            x
-        },
-        Err(err) => {
-            eprintln!("[!] Error: Binding to {} {err}", &config.server.listen_addr_ipv6);
+    let socket_ipv6 = {
+        let addrs: SocketAddr = match config.server.listen_addr_ipv6.parse() {
+            Ok(x) => x,
+            Err(err) => {
+                eprintln!("[!] Error: Parsing IPV6 addrs - {err}");
+                return;
+            }
+        };
+
+        let raw_sockfd = match Socket::new(Domain::IPV6, Type::DGRAM, None) {
+            Ok(x) => x,
+            Err(err) => {
+                eprintln!("[!] Error: Creating socket {err}");
+                return;
+            }
+        };
+
+        if let Err(err) = raw_sockfd.set_only_v6(true) {
+            eprintln!("[!] Error: Setting socket to IPV6 only - {err}");
             return;
+        }
+
+        if let Err(err) = raw_sockfd.bind(&addrs.into()) {
+            eprintln!("[!] Error: Setting socket to IPV6 only - {err}");
+            return;
+        }
+
+        if let Err(err) = raw_sockfd.set_nonblocking(true) {
+            eprintln!("[!] Error: Setting nonblocking socket - {err}");
+            return;
+        }
+
+        let udp_sockfd = std::net::UdpSocket::from(raw_sockfd);
+
+        match UdpSocket::from_std(udp_sockfd) {
+            Ok(x) => {
+                println!("and {} <<>>", &config.server.listen_addr_ipv6);
+                x
+            },
+            Err(err) => {
+                eprintln!("[!] Error: Creating tokio UDP Socket - {err}");
+                return;
+            }
         }
     };
 
@@ -144,7 +180,7 @@ async fn main() {
             x
         },
         Err(err) => {
-            eprintln!("[!] Error: {err}");
+            eprintln!("[!] Error: Blocklist Reader - {err}");
             return;
         }
     };

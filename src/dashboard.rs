@@ -2,7 +2,9 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicU64;
 use std::io::Result;
 use std::collections::HashMap;
+use axum::body::Body;
 use axum::extract::State;
+use axum::http::{HeaderValue, Response as OtherResponse, header};
 use axum::{Json, Router};
 use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
@@ -189,6 +191,7 @@ pub async fn start_api(addrs: String, configs: Arc<crate::RuntimeState>) -> Resu
 
     let app = Router::new()
         .route("/", get(handler))
+        .route("/favicon", get(favicon))
         .route("/api", post(api))
         .route("/dashboard", get(dashboard_data))
         .with_state((configs, addrs));
@@ -199,7 +202,9 @@ pub async fn start_api(addrs: String, configs: Arc<crate::RuntimeState>) -> Resu
 async fn handler(
     State((_, addrs)): State<(Arc<crate::RuntimeState>, String)>
 ) -> Html<String> {
-    let data = std::fs::read_to_string("index.html")
+    let data = std::fs::read_to_string(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/index.html")
+        )
         .unwrap_or_else(|error|
             format!( r#"<!doctype html><html><body> <h1>Error</h1> <p>{}</p> </body> </html>"#,
                 error.to_string())
@@ -208,6 +213,22 @@ async fn handler(
     let data = data.replace("<<<ADDRS>>>", &addrs);
 
     Html(data)
+}
+
+async fn favicon() -> OtherResponse<Body> {
+    let data = tokio::fs::read(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/dns_icon.png")
+        )
+        .await
+        .expect("Error: Wrong path");
+
+    OtherResponse::builder()
+        .header(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("image/x-icon")
+        )
+        .body(Body::from(data))
+        .unwrap()
 }
 
 async fn dashboard_data(
